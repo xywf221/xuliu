@@ -1,0 +1,51 @@
+# 换行符策略。
+#
+# 背景：这台机器 core.autocrlf=true，于是「库里存 LF、检出变 CRLF」。
+# 对纯文本代码没什么坏处，但有两处会真出事：
+#   1. scripts/e2e.sh 带 CRLF 进 Linux 容器 → bash 报 `$'\r': command not found`；
+#      docker build 的上下文取自 Windows 工作区，拿到的正是这份 CRLF 版本。
+#   2. 生成物（docs/、package-lock.json）与手写文件混着比时，整文件级的
+#      换行符差异会伪装成「内容变了」，把真正的改动淹没在 diff 里。
+# 所以下面这些一律钉成 LF —— 检出到 Windows 也不再转换。
+# 代价是记事本里打开会挤成一行，换 VS Code / GoLand 就没事。
+
+# 兜底：让 git 自己判断是不是文本，库里统一存 LF。
+* text=auto
+
+# 会被工具链执行的，必须是 LF
+*.go        text eol=lf
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+.dockerignore text eol=lf
+.gitattributes text eol=lf
+.gitignore    text eol=lf
+
+# 生成物与配置：钉死 LF，跨平台比对才有意义
+go.mod      text eol=lf
+go.sum      text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+
+# 前端源码
+*.vue       text eol=lf
+*.js        text eol=lf
+*.mjs       text eol=lf
+*.css       text eol=lf
+*.html      text eol=lf
+
+# 二进制：不要猜换行符，也不要生成文本 diff
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.svg  text eol=lf
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.db   binary
+
+# 发布产物目录（internal/web/dist）内容不入库，只有 .gitkeep 例外；
+# 它是 go:embed 的占位符，见 internal/web/web.go。
