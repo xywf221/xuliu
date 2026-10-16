@@ -1,0 +1,40 @@
+# 构建上下文里不该出现的东西。
+#
+# 两条不能踩的线：
+#   1. web/ 必须留下 —— 前端要在镜像里编译，它是构建的输入而不是产物；
+#   2. docs/ 必须留下 —— internal/router/swagger.go 用
+#      `_ "github.com/xywf221/xuliu/docs"` 导入 swag 生成的文档包，
+#      排除掉会让镜像构建直接失败。
+
+# 版本控制与编辑器
+.git
+.git/
+.gitignore
+.idea
+.vscode
+
+# 本机运行时数据：sqlite 库与上传的附件
+data/
+
+# 前端依赖：镜像里用 npm ci 重装，本机这份可能带平台相关的构建产物
+web/node_modules/
+
+# 前端构建产物：由 frontend 阶段重新生成并 COPY 进来。
+# 不排掉的话，本机 dist 会先被打包进上下文、再被覆盖 —— 白费一层传输。
+/internal/web/dist/*
+!/internal/web/dist/.gitkeep
+
+# Go 二进制与测试产物
+/xuliu
+/xuliu.exe
+*.test
+*.out
+
+# 说明性文档不进镜像（README 里有链接，镜像里不必带一份）
+*.md
+
+# 压缩与临时文件
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

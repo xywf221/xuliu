@@ -1,0 +1,110 @@
+# 换库验证用的编排：把序流分别跑在 MySQL 与 PostgreSQL 上。
+#
+# 日常单实例试用只需要 xuliu 一个服务（默认 sqlite，零外部依赖）；
+# 这个文件的意义在于「同一份代码、同一套迁移、三个库都能建出等价的表」
+# 这件事随时可以被复现，而不只是写在 README 里的一句话。
+#
+#   docker compose --profile mysql up -d
+#   docker compose --profile postgres up -d
+#
+# 两个 profile 各带一个数据库服务与一个连它的 xuliu 实例，互不干扰，
+# 也可以同时起来（端口已错开）。
+
+services:
+  # ---- 应用（默认 sqlite，不需要任何数据库服务）----
+  xuliu:
+    build: .
+    profiles: ["", "sqlite"]
+    ports:
+      - "8080:8080"
+    volumes:
+      - xuliu-data:/app/data
+    environment:
+      XULIU_APP__ENV: prod
+      # 生产环境必须显式给密钥，否则启动时直接拒绝 ——
+      # 临时生成的密钥会让重启后所有人的登录状态失效。
+      XULIU_AUTH__JWTSECRET: please-change-me-in-production-32bytes
+    restart: unless-stopped
+
+  # ---- MySQL ----
+  mysql:
+    image: mysql:8.4
+    profiles: ["mysql"]
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: xuliu
+      MYSQL_USER: xuliu
+      MYSQL_PASSWORD: xuliu
+    ports:
+      - "13306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  xuliu-mysql:
+    build: .
+    profiles: ["mysql"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    environment:
+      XULIU_APP__ENV: prod
+      XULIU_AUTH__JWTSECRET: please-change-me-in-production-32bytes
+      XULIU_DATABASE__DRIVER: mysql
+      # 容器内用服务名 mysql 作为主机名，不是 127.0.0.1。
+      XULIU_DATABASE__DSN: xuliu:xuliu@tcp(mysql:3306)/xuliu?charset=utf8mb4&parseTime=True&loc=UTC
+      XULIU_STORAGE__LOCAL__DIR: /app/data/uploads
+    volumes:
+      - xuliu-mysql-data:/app/data
+    restart: unless-stopped
+
+  # ---- PostgreSQL ----
+  postgres:
+    image: postgres:17
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_DB: xuliu
+      POSTGRES_USER: xuliu
+      POSTGRES_PASSWORD: xuliu
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xuliu -d xuliu"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  xuliu-postgres:
+    build: .
+    profiles: ["postgres"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8082:8080"
+    environment:
+      XULIU_APP__ENV: prod
+      XULIU_AUTH__JWTSECRET: please-change-me-in-production-32bytes
+      XULIU_DATABASE__DRIVER: postgres
+      # 同样，主机名是服务名 postgres。TimeZone=UTC 与代码里的时间口径一致。
+      XULIU_DATABASE__DSN: host=postgres user=xuliu password=xuliu dbname=xuliu port=5432 sslmode=disable TimeZone=UTC
+      XULIU_STORAGE__LOCAL__DIR: /app/data/uploads
+    volumes:
+      - xuliu-postgres-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  xuliu-data:
+  xuliu-mysql-data:
+  xuliu-postgres-data:
+  mysql-data:
+  postgres-data:

@@ -1,0 +1,30 @@
+# 构建产物
+/xuliu
+/xuliu.exe
+/dist/
+*.test
+
+# 运行时数据：SQLite 库、本地上传的附件
+# 这些是「跑起来才会产生」的东西，不该进版本库。
+/data/
+
+# 前端依赖与构建输出。
+# 注意 internal/web/dist 在构建时会被前端产物覆盖，
+# 但我们只用 all:dist 内嵌它，仓库里保留 .gitkeep 占位即可。
+/web/node_modules/
+/web/dist/
+/internal/web/dist/*
+!/internal/web/dist/.gitkeep
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# 本地配置覆盖与密钥，绝不能提交
+configs/config.local.yaml
+configs/*.secret.yaml
+*.pem
+*.key

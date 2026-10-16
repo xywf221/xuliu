@@ -1,0 +1,5 @@
+本文件是 go:embed 的占位符，不是遗留物，请勿删除。
+
+internal/web/dist 的内容由 web/ 下的 npm run build 生成，不入库；
+而 //go:embed all:dist 要求这个目录存在且非空 —— 没有它，
+一份尚未构建前端的 clone 连 go build 都过不去。

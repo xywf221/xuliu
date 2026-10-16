@@ -1,0 +1,102 @@
+/* 全局样式。
+ *
+ * 只放三类东西：CSS 变量（配色/间距）、Element Plus 的一点点覆盖、
+ * 以及跨页面复用的排版类。页面自己的样式一律写在组件里 ——
+ * 全局文件越薄，改一个页面的样式时越不用担心碰到别的页面。
+ */
+
+:root {
+  --xl-bg: #f5f7fa;
+  --xl-card-radius: 8px;
+  --xl-text-dim: #909399;
+  --xl-gap: 16px;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--xl-bg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  color: #303133;
+}
+
+/* 页面顶部的标题行：标题在左、操作在右 */
+.xl-page-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xl-gap);
+  margin-bottom: var(--xl-gap);
+}
+
+.xl-page-title h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.xl-dim {
+  color: var(--xl-text-dim);
+}
+
+.xl-mono {
+  font-family: 'Cascadia Mono', Consolas, monospace;
+}
+
+/* 列表页的筛选条：一行放不下就换行，不横向滚动 */
+.xl-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.xl-pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+/* 详情页的字段网格：两列起步，窄屏退成一列 */
+.xl-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 24px;
+}
+
+.xl-field {
+  display: flex;
+  gap: 8px;
+  line-height: 24px;
+}
+
+.xl-field > .label {
+  flex: 0 0 76px;
+  color: var(--xl-text-dim);
+}
+
+.xl-field > .value {
+  flex: 1;
+  word-break: break-word;
+}
+
+/* 正文块（需求描述、重现步骤这类）：保留换行 */
+.xl-prose {
+  white-space: pre-wrap;
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.xl-empty {
+  color: var(--xl-text-dim);
+  text-align: center;
+  padding: 24px 0;
+}

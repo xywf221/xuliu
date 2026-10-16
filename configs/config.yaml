@@ -1,0 +1,136 @@
+# 序流研发管理平台 —— 默认配置
+#
+# 优先级：内置默认值 < 本文件 < 环境变量
+# 环境变量用 XULIU_ 前缀、双下划线表达层级，例如：
+#   XULIU_DATABASE__DRIVER=postgres
+#   XULIU_DATABASE__DSN="host=127.0.0.1 user=xuliu dbname=xuliu sslmode=disable"
+#   XULIU_AUTH__JWTSECRET="..."
+#
+# 本文件里的值刻意与内置默认值一致，用意是「可读的配置示例」：
+# 需要调什么，改这里或加环境变量即可。
+
+app:
+  name: 序流
+  # dev / test / prod。prod 会强制 JSON 日志并要求显式配置 JWT 密钥。
+  env: dev
+
+  # 首次启动时创建初始管理员（仅在库中没有任何用户时生效）。
+  # 生产环境请改掉默认口令，或关闭此项后由其他途径建号。
+  bootstrap:
+    enabled: true
+    account: admin
+    password: admin123456
+    realname: 系统管理员
+    email: ""
+
+server:
+  addr: ":8080"
+  readTimeout: 15s
+  readHeaderTimeout: 10s
+  writeTimeout: 60s
+  idleTimeout: 120s
+  shutdownTimeout: 15s
+  maxHeaderBytes: 1048576
+  maxHeaderValueCount: 100
+
+  # 前后端分离开发时，把 Vite 开发服务器的源填在这里以放行跨站写请求。
+  # 生产环境前后端同源部署，留空即可（此时启用最严格的跨站防护）。
+  corsOrigins: []
+
+  # 部署在反向代理后时，把代理地址填在这里，以便正确识别客户端 IP。
+  # 留空表示不信任任何代理。
+  trustedProxies: []
+
+database:
+  # sqlite / mysql / postgres —— 换库只需改这两行。
+  driver: sqlite
+  # sqlite 用文件路径；mysql / postgres 用各自的标准 DSN。
+  #
+  # MySQL 示例:    xuliu:password@tcp(127.0.0.1:3306)/xuliu?charset=utf8mb4&parseTime=True&loc=UTC
+  # PostgreSQL 示例: host=127.0.0.1 user=xuliu password=xxx dbname=xuliu port=5432 sslmode=disable TimeZone=UTC
+  dsn: data/xuliu.db
+
+  maxOpenConns: 25
+  maxIdleConns: 5
+  connMaxLifetime: 1h
+  connMaxIdleTime: 10m
+
+  # silent / error / warn / info
+  logLevel: warn
+
+  # 启动时自动建表/补齐缺失的列。生产环境首次部署后可以关掉。
+  autoMigrate: true
+  # 写入内置权限组、默认配置等基础数据。重复启动是安全的。
+  seed: true
+
+auth:
+  # 留空时开发环境会自动生成一个临时密钥（重启后登录失效并告警）；
+  # 生产环境必须显式配置，否则拒绝启动。
+  jwtSecret: ""
+  issuer: xuliu
+  accessTTL: 2h
+  refreshTTL: 168h
+
+  # bcrypt 代价因子，10..31。12 约 250ms，兼顾安全与登录体验。
+  bcryptCost: 12
+
+  # 连续登录失败多少次后锁定，以及锁定时长。0 表示不锁。
+  maxLoginFailures: 10
+  lockDuration: 15m
+
+storage:
+  # local / s3
+  backend: local
+
+  local:
+    dir: data/uploads
+    # 单文件上限（字节），默认 64 MiB。
+    maxSize: 67108864
+    # 允许的扩展名（小写，含点）。留空表示不限制。
+    allowedExtensions:
+      - .png
+      - .jpg
+      - .jpeg
+      - .gif
+      - .webp
+      - .svg
+      - .txt
+      - .md
+      - .log
+      - .csv
+      - .pdf
+      - .doc
+      - .docx
+      - .xls
+      - .xlsx
+      - .ppt
+      - .pptx
+      - .zip
+      - .tar
+      - .gz
+      - .7z
+      - .rar
+      - .json
+      - .xml
+      - .yaml
+      - .yml
+      - .sql
+
+  # S3 兼容对象存储（MinIO / 阿里云 OSS / 腾讯云 COS / AWS S3）。
+  # backend 改为 s3 后启用以下配置。
+  s3:
+    endpoint: ""
+    region: us-east-1
+    bucket: ""
+    accessKey: ""
+    secretKey: ""
+    useSsl: true
+    # 配了公网域名（如 CDN）时附件直链可用；留空则走带鉴权的下载接口。
+    publicBaseUrl: ""
+
+log:
+  # debug / info / warn / error
+  level: info
+  # text / json。生产环境强制 json。
+  format: text
+  addSource: false
