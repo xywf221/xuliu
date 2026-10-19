@@ -11,7 +11,6 @@
 package web
 
 import (
-	"bytes"
 	"embed"
 	"io/fs"
 	"net/http"
@@ -103,11 +102,16 @@ func (a *Assets) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 带哈希的产物文件名（如 index-a1b2c3.js）内容不会变，
-	// 可以放心长期缓存；index.html 本身则必须每次都校验。
+	// 可以放心长期缓存；其余文件（favicon 等）没有内容哈希，
+	// 必须 no-store —— 理由与 ServeIndex 相同。
+	modTime := a.modTime
 	if strings.HasPrefix(name, "assets/") {
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	} else {
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Cache-Control", "no-store")
+		// 零值 ModTime 让 ServeContent 不输出 Last-Modified，
+		// 从根上避免「内容变了却回 304」。
+		modTime = time.Time{}
 	}
 
 	seeker, ok := f.(interface {
@@ -118,24 +122,34 @@ func (a *Assets) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	// 带上 ModTime 才能响应 If-Modified-Since，让重复访问走 304。
-	http.ServeContent(w, r, info.Name(), a.modTime, seeker)
+	// 资源文件带 ModTime 才能响应 If-Modified-Since；但它们是 immutable，
+	// 正常情况下浏览器不会来问，这里只是给不支持 immutable 的客户端兜底。
+	http.ServeContent(w, r, info.Name(), modTime, seeker)
 }
 
 // ServeIndex 返回 SPA 的入口页面。
 //
 // 所有未命中静态资源的前端路由都走这里 —— 这是单页应用在
 // 「用户直接访问 /projects/3 并刷新」时仍能正常工作的关键。
+//
+// index.html 用 no-store 而不是 no-cache：no-cache 只是「使用前必须校验」，
+// 而校验要依赖 Last-Modified / ETag。之前这里配的是 no-cache + 固定的
+// 2020 年 Last-Modified，结果是浏览器带着 If-Modified-Since 来问，
+// 服务端每次都回 304 —— 发版后老用户永远拿不到新的 index.html，
+// 也就永远加载旧的模块图（真实踩过：新前端怎么改都不生效）。
+// no-store 让它根本不进缓存，代价只是每次多传 1KB 左右的 HTML。
 func (a *Assets) ServeIndex(w http.ResponseWriter, r *http.Request) {
 	if a == nil || len(a.index) == 0 {
 		http.NotFound(w, r)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	// index.html 引用的资源带内容哈希，所以它自己不能缓存，
-	// 否则发版后用户会一直加载旧版的资源引用。
-	w.Header().Set("Cache-Control", "no-cache")
-	http.ServeContent(w, r, indexFile, a.modTime, bytes.NewReader(a.index))
+	w.Header().Set("Cache-Control", "no-store")
+	// 必须显式写 200：SPA 回退是挂在 gin 的 NoRoute 上的，那里已经预置了
+	// 404 状态；不覆盖的话，直接访问 / 或刷新子页面会拿到「200 的页面内容
+	// 配 404 的状态码」。ServeContent 内部会写 200，所以早先没暴露这个问题。
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(a.index)
 }
 
 // cleanPath 把 URL 路径清洗为文件系统内的相对路径。
@@ -157,11 +171,14 @@ func cleanPath(urlPath string) string {
 	return cleaned
 }
 
-// buildTime 返回一个用于 Last-Modified 的稳定时间。
+// buildTime 是 **内容哈希资源** 的 Last-Modified。
 //
-// 用编译期不可得，所以取一个固定的近期时间而非 time.Now()：
-// 后者会让每次进程重启都产生不同的 Last-Modified，
-// 使客户端缓存在重启后全部失效。料想发布频率不高，固定值足够。
+// 只给 assets/ 下的文件用：它们的文件名带内容哈希，内容永远不会在同一个
+// 名字下变化，所以「固定的 2020 年」不会造成陈旧内容，只会让条件请求
+// 一律命中 304（这正是期望行为）。
+//
+// 不要把它用到没有内容哈希的文件上：固定时间 + 条件请求 =
+// 「内容更新了但客户端永远拿到旧版」。index.html 与根级文件走的都是 no-store。
 func buildTime() time.Time {
 	return time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 }
