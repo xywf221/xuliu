@@ -412,3 +412,100 @@ const (
 	GenderMale   = "m"
 	GenderFemale = "f"
 )
+
+// ---------------------------------------------------------------------------
+// 测试用例
+// ---------------------------------------------------------------------------
+
+// TestCaseStage 用例的评审生命周期。走状态机（见 workflow.TestCaseMachine）。
+const (
+	TestCaseStageWait      = "wait"      // 待评审
+	TestCaseStageReviewing = "reviewing" // 评审中
+	TestCaseStageConfirmed = "confirmed" // 评审通过，可纳入测试单
+	TestCaseStageRejected  = "rejected"  // 评审驳回
+)
+
+// TestCaseStatus 用例的可执行性。与 Stage 正交：
+// 评审通过但环境没好，就是 confirmed + blocked。
+const (
+	TestCaseStatusNormal      = "normal"      // 正常可执行
+	TestCaseStatusBlocked     = "blocked"     // 被阻塞，暂时跑不了
+	TestCaseStatusInvestigate = "investigate" // 结果存疑，待查
+)
+
+// TestCaseType 用例类型。借鉴禅道的分类，但只留下我们真会用来筛选的几类：
+// 禅道另有 experience / designChange / unittest 等，实际数据里几乎为空，
+// 放进枚举只会让筛选列表变长而没人用。
+const (
+	TestCaseTypeFeature     = "feature"     // 功能
+	TestCaseTypeInterface   = "interface"   // 接口
+	TestCaseTypePerformance = "performance" // 性能
+	TestCaseTypeConfig      = "config"      // 配置
+	TestCaseTypeSecurity    = "security"    // 安全
+	TestCaseTypeOthers      = "others"      // 其他
+)
+
+// TestCaseTypes 是全部用例类型，供服务层校验与前端下拉框共用。
+//
+// 服务层再校验一次是有意的：DTO 上的 oneof 只挡 HTTP 那条路，
+// 而从别的入口（导入、将来的批量生成）调用服务时，没登记的类型
+// 会一路写进库，最后在前端显示成一个空白标签。
+var TestCaseTypes = []string{
+	TestCaseTypeFeature,
+	TestCaseTypeInterface,
+	TestCaseTypePerformance,
+	TestCaseTypeConfig,
+	TestCaseTypeSecurity,
+	TestCaseTypeOthers,
+}
+
+// TestCaseStatuses 是全部可执行性取值。
+var TestCaseStatuses = []string{
+	TestCaseStatusNormal,
+	TestCaseStatusBlocked,
+	TestCaseStatusInvestigate,
+}
+
+// ---------------------------------------------------------------------------
+// 测试单与执行记录
+// ---------------------------------------------------------------------------
+
+// TestTaskStatus 测试单的流程位置。
+//
+// 注意结论不在这个维度里（见 TestTaskResult）：「测完了，结论是失败」
+// 是 status=closed + result=fail 两列，而不是把 pass/fail 当成状态。
+const (
+	TestTaskStatusWait    = "wait"    // 未开始
+	TestTaskStatusDoing   = "doing"   // 进行中
+	TestTaskStatusBlocked = "blocked" // 被阻塞（环境/依赖没好）
+	TestTaskStatusClosed  = "closed"  // 已结单，结论见 Result
+)
+
+// TestTaskResult 是结单时给出的结论。空串表示还没结单。
+const (
+	TestTaskResultPass    = "pass"    // 通过
+	TestTaskResultFail    = "fail"    // 不通过
+	TestTaskResultBlocked = "blocked" // 因故未能测完
+)
+
+var TestTaskResults = []string{
+	TestTaskResultPass,
+	TestTaskResultFail,
+	TestTaskResultBlocked,
+}
+
+// TestRunResult 是一次执行的结论。
+//
+// 与结单结论用同一组字面量（pass/fail/blocked）：语义本来就是同一件事，
+// 分成两套值只会让「用例失败」和「测试单失败」在统计里对不上。
+const (
+	TestRunResultPass    = "pass"
+	TestRunResultFail    = "fail"
+	TestRunResultBlocked = "blocked"
+)
+
+var TestRunResults = []string{
+	TestRunResultPass,
+	TestRunResultFail,
+	TestRunResultBlocked,
+}

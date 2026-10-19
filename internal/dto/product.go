@@ -124,8 +124,10 @@ type ProductBrief struct {
 type ModuleReq struct {
 	// Root 是所属产品 id。
 	Root uint `json:"root" validate:"required"`
-	// Type 取 story / task / bug。
-	Type     string `json:"type" validate:"required,oneof=story task bug"`
+	// Type 取 story / task / bug / case。
+	// case 是测试用例那棵树：同一产品下四类树各自独立，
+	// 否则「需求模块」和「用例模块」会混在同一个父节点下互相穿插。
+	Type     string `json:"type" validate:"required,oneof=story task bug case"`
 	ParentID uint   `json:"parentId"`
 
 	Name  string `json:"name" validate:"required,max=60"`

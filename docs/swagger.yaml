@@ -1,5 +1,25 @@
 basePath: /api/v1
 definitions:
+  github_com_xywf221_xuliu_internal_dto.AddTaskCasesReq:
+    properties:
+      caseIds:
+        items:
+          type: integer
+        minItems: 1
+        type: array
+    required:
+    - caseIds
+    type: object
+  github_com_xywf221_xuliu_internal_dto.AssignUserReq:
+    properties:
+      assignedTo:
+        type: integer
+      comment:
+        maxLength: 255
+        type: string
+    required:
+    - assignedTo
+    type: object
   github_com_xywf221_xuliu_internal_dto.BugActivateReq:
     properties:
       assignedTo:
@@ -315,6 +335,20 @@ definitions:
       verify:
         type: string
     type: object
+  github_com_xywf221_xuliu_internal_dto.CaseReviewReq:
+    properties:
+      comment:
+        maxLength: 255
+        type: string
+      result:
+        description: Result 取 pass（确认可用）或 reject（驳回）。
+        enum:
+        - pass
+        - reject
+        type: string
+    required:
+    - result
+    type: object
   github_com_xywf221_xuliu_internal_dto.ChangePasswordReq:
     properties:
       newPassword:
@@ -341,6 +375,11 @@ definitions:
       objectID:
         type: integer
       objectType:
+        description: |-
+          ObjectType 的白名单只是第一道；真正的可见性判定在 Gate，
+          它按对象类型去解析归属（不认识的类型一律拒绝）。
+          新增一种可评论的对象时，这里和 Gate.Locate 要一起加，
+          只加一边会得到「参数合法但查不到对象」这种最难懂的报错。
         enum:
         - story
         - task
@@ -350,6 +389,8 @@ definitions:
         - product
         - productplan
         - module
+        - case
+        - testtask
         type: string
     required:
     - content
@@ -964,11 +1005,15 @@ definitions:
         maxLength: 60
         type: string
       type:
-        description: Type 取 story / task / bug。
+        description: |-
+          Type 取 story / task / bug / case。
+          case 是测试用例那棵树：同一产品下四类树各自独立，
+          否则「需求模块」和「用例模块」会混在同一个父节点下互相穿插。
         enum:
         - story
         - task
         - bug
+        - case
         type: string
     required:
     - name
@@ -2158,6 +2203,338 @@ definitions:
         description: TaskCount 是该成员在本项目内的任务数，仅详情填充。
         type: integer
       userId:
+        type: integer
+    type: object
+  github_com_xywf221_xuliu_internal_dto.TestCaseReq:
+    properties:
+      desc:
+        type: string
+      keywords:
+        maxLength: 255
+        type: string
+      moduleId:
+        type: integer
+      order:
+        type: integer
+      precondition:
+        type: string
+      pri:
+        maximum: 4
+        type: integer
+      productId:
+        type: integer
+      status:
+        description: |-
+          Status 是可执行性：normal/blocked/investigate。评审阶段（stage）不在这里，
+          它只能走状态机动作，普通编辑改不了 —— 否则就绕过了评审。
+        enum:
+        - normal
+        - blocked
+        - investigate
+        type: string
+      steps:
+        description: Steps 至少一步：这是用例能否被执行与判定的底线。
+        items:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestCaseStepReq'
+        minItems: 1
+        type: array
+      storyId:
+        description: StoryID 是可追溯的需求来源；为 0 表示这条用例不对应具体需求。
+        type: integer
+      title:
+        maxLength: 255
+        type: string
+      type:
+        description: Type 取 feature/interface/performance/config/security/others。
+        enum:
+        - feature
+        - interface
+        - performance
+        - config
+        - security
+        - others
+        type: string
+    required:
+    - productId
+    - steps
+    - title
+    type: object
+  github_com_xywf221_xuliu_internal_dto.TestCaseResp:
+    properties:
+      actions:
+        description: Actions 来自状态机（按 stage 计算），前端据此渲染按钮。
+        items:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TransitionResp'
+        type: array
+      code:
+        description: Code 是给人看的编号，如 CASE-12；主键仍是自增 ID。
+        type: string
+      commentCount:
+        type: integer
+      desc:
+        type: string
+      fileCount:
+        type: integer
+      id:
+        type: integer
+      keywords:
+        type: string
+      lastEditedBy:
+        type: integer
+      lastEditedDate:
+        type: string
+      moduleId:
+        type: integer
+      moduleName:
+        type: string
+      openedBy:
+        type: integer
+      openedByName:
+        type: string
+      openedDate:
+        type: string
+      order:
+        type: integer
+      precondition:
+        type: string
+      pri:
+        type: integer
+      productId:
+        type: integer
+      productName:
+        description: ProductName/ModuleName 由 service 批量补全，列表不必逐行查。
+        type: string
+      reviewedBy:
+        type: integer
+      reviewedByName:
+        type: string
+      reviewedDate:
+        type: string
+      stage:
+        type: string
+      status:
+        type: string
+      stepCount:
+        type: integer
+      storyId:
+        type: integer
+      storyStale:
+        description: |-
+          StoryStale 就是上面那个比对的结论，由后端给：
+          补齐需求标题时已经把需求整行查出来了，版本就在同一份结果里，
+          顺手算掉比让前端再查一次需求更省，也更不容易各算各的。
+        type: boolean
+      storyTitle:
+        type: string
+      storyVersion:
+        description: |-
+          StoryVersion 是用例记录时锁定的需求版本；与需求当前版本不一致
+          就说明需求变了、这条用例要复核。
+        type: integer
+      title:
+        type: string
+      type:
+        type: string
+      version:
+        type: integer
+    type: object
+  github_com_xywf221_xuliu_internal_dto.TestCaseStepReq:
+    properties:
+      expect:
+        maxLength: 2000
+        type: string
+      id:
+        type: integer
+      order:
+        type: integer
+      step:
+        maxLength: 2000
+        type: string
+    required:
+    - step
+    type: object
+  github_com_xywf221_xuliu_internal_dto.TestRunReq:
+    properties:
+      bugIds:
+        description: |-
+          BugIDs 是本次发现/关联的缺陷。失败时不强制填：
+          先记录结果、回头再建缺陷是常见顺序。
+        items:
+          type: integer
+        type: array
+      buildId:
+        description: BuildID 是实际跑的构建；留空则沿用测试单上的构建。
+        type: integer
+      duration:
+        description: Duration 是本次执行耗时（小时）。
+        minimum: 0
+        type: number
+      note:
+        type: string
+      result:
+        description: Result 是这条用例本次的结论。
+        enum:
+        - pass
+        - fail
+        - blocked
+        type: string
+      steps:
+        description: Steps 是逐步骤的实际情况，用于「断在第几步」。
+        items:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestRunStepReq'
+        type: array
+    required:
+    - result
+    type: object
+  github_com_xywf221_xuliu_internal_dto.TestRunStepReq:
+    properties:
+      actual:
+        type: string
+      expect:
+        type: string
+      order:
+        type: integer
+      result:
+        description: Result 取 pass/fail/blocked；留空表示跟随整条用例的结论。
+        enum:
+        - pass
+        - fail
+        - blocked
+        type: string
+      step:
+        description: Step/Expect 由后端按用例当时的版本回填，客户端不必传。
+        type: string
+    type: object
+  github_com_xywf221_xuliu_internal_dto.TestTaskFinishReq:
+    properties:
+      report:
+        type: string
+      result:
+        description: Result 取 pass / fail / blocked。
+        enum:
+        - pass
+        - fail
+        - blocked
+        type: string
+    required:
+    - result
+    type: object
+  github_com_xywf221_xuliu_internal_dto.TestTaskReq:
+    properties:
+      assignedTo:
+        type: integer
+      begin:
+        description: Begin/End 是计划起止，格式 YYYY-MM-DD。
+        type: string
+      buildId:
+        type: integer
+      caseIds:
+        description: |-
+          CaseIDs 是新建/编辑时一并纳入的用例（可选）。
+          与「先建单再加用例」两条路都通：前端从需求列表勾选建单更省事。
+        items:
+          type: integer
+        type: array
+      desc:
+        type: string
+      end:
+        type: string
+      executionId:
+        type: integer
+      name:
+        maxLength: 255
+        type: string
+      order:
+        type: integer
+      pri:
+        maximum: 4
+        type: integer
+      productId:
+        description: ProductID 必填：测试总是围绕某个产品。
+        type: integer
+      projectId:
+        description: ProjectID/ExecutionID 可选（线上回归可能不属于任何项目）。
+        type: integer
+    required:
+    - name
+    - productId
+    type: object
+  github_com_xywf221_xuliu_internal_dto.TestTaskResp:
+    properties:
+      actions:
+        items:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TransitionResp'
+        type: array
+      assignedTo:
+        type: integer
+      assignedToName:
+        type: string
+      begin:
+        type: string
+      buildId:
+        type: integer
+      buildName:
+        type: string
+      caseCount:
+        type: integer
+      code:
+        type: string
+      desc:
+        type: string
+      end:
+        type: string
+      executionId:
+        type: integer
+      finishedAt:
+        type: string
+      id:
+        type: integer
+      lastRunDate:
+        type: string
+      name:
+        type: string
+      openedBy:
+        type: integer
+      openedByName:
+        type: string
+      openedDate:
+        type: string
+      pri:
+        type: integer
+      productId:
+        type: integer
+      productName:
+        type: string
+      projectId:
+        type: integer
+      projectName:
+        type: string
+      report:
+        type: string
+      result:
+        description: Result 只在已结单时有值：pass / fail / blocked。
+        type: string
+      startedAt:
+        type: string
+      status:
+        type: string
+      summary:
+        allOf:
+        - $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskSummary'
+        description: Summary 是单内用例的逐结论计数（pass/fail/blocked/unrun 四种）。
+    type: object
+  github_com_xywf221_xuliu_internal_dto.TestTaskSummary:
+    properties:
+      blocked:
+        type: integer
+      fail:
+        type: integer
+      pass:
+        type: integer
+      total:
+        description: Total 是纳入的用例总数（上面四项之和）。
+        type: integer
+      unrun:
         type: integer
     type: object
   github_com_xywf221_xuliu_internal_dto.TransitionResp:
@@ -8107,6 +8484,1194 @@ paths:
       summary: 任务看板
       tags:
       - 任务
+  /testcases:
+    get:
+      description: |-
+        分页查询测试用例，data 为分页对象 {list,total,page,size}，list 元素为 dto.TestCaseResp。
+        只能看到自己有权限的产品下的用例（可见性按产品判定，与缺陷同一口径）。
+      parameters:
+      - description: 按产品过滤
+        in: query
+        name: productId
+        type: integer
+      - description: 按模块过滤
+        in: query
+        name: moduleId
+        type: integer
+      - description: 按溯源需求过滤
+        in: query
+        name: storyId
+        type: integer
+      - description: 评审阶段：wait / reviewing / confirmed / rejected
+        in: query
+        name: stage
+        type: string
+      - description: 可执行性：normal / blocked / investigate
+        in: query
+        name: status
+        type: string
+      - description: 用例类型，如 feature / interface / performance
+        in: query
+        name: type
+        type: string
+      - description: 优先级 1-4
+        in: query
+        name: pri
+        type: integer
+      - description: 创建人
+        in: query
+        name: openedBy
+        type: integer
+      - description: 评审人
+        in: query
+        name: reviewedBy
+        type: integer
+      - description: 在标题、关键词、编号上做模糊匹配
+        in: query
+        name: keywords
+        type: string
+      - description: 页码，默认 1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认 20，最大 200
+        in: query
+        name: size
+        type: integer
+      - description: 排序，如 id_desc
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 分页对象，data 为 {list,total,page,size}，list 元素为 dto.TestCaseResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testcase-browse 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 用例列表
+      tags:
+      - 测试用例
+    post:
+      consumes:
+      - application/json
+      description: |-
+        创建用例及其步骤，data 为 dto.TestCaseResp。初始评审阶段是 wait（待评审）、版本为 1。
+        步骤至少一条；顺序由后端按提交顺序重排为 1..n，前端传来的序号不作数。
+        模块与溯源需求都必须属于所选产品，否则报参数错误。
+      parameters:
+      - description: 新建用例请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestCaseReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 创建成功，data 为 dto.TestCaseResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 参数不合法（含步骤为空、取值不在枚举内）
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testcase-create 权限，或该产品不可见
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 产品或所选需求不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "409":
+          description: 产品已关闭，不能再维护用例
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 新建用例
+      tags:
+      - 测试用例
+  /testcases/{id}:
+    delete:
+      description: 软删除用例，并连带删除它的步骤。data 无内容。
+      parameters:
+      - description: 用例 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: 无内容
+          schema:
+            type: string
+        "400":
+          description: 路径参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testcase-delete 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 用例不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 删除用例
+      tags:
+      - 测试用例
+    get:
+      description: 返回用例全文与全部步骤（data 为 dto.TestCaseDetailResp）。步骤按 order 升序。
+      parameters:
+      - description: 用例 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 用例详情，data 为 dto.TestCaseDetailResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 路径参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testcase-browse 权限，或用例所属产品不可见
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 用例不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 用例详情
+      tags:
+      - 测试用例
+    put:
+      consumes:
+      - application/json
+      description: |-
+        整体覆盖用例内容与步骤，data 为 dto.TestCaseResp。请求里没带的字段会被写回零值。
+        内容真的发生变化时版本 +1；已确认（confirmed）的用例会被打回待评审 ——
+        评审针对的是那份内容，内容换了旧结论不该继续生效。
+        评审中（reviewing）不允许编辑，要先撤回评审。
+      parameters:
+      - description: 用例 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 用例全量内容
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestCaseReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 编辑成功，data 为 dto.TestCaseResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 参数不合法（含步骤为空）
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testcase-edit 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 用例不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "409":
+          description: 评审中的用例不能编辑
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 编辑用例
+      tags:
+      - 测试用例
+  /testcases/{id}/recall:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        把用例送进评审（submitreview：wait/rejected → reviewing）或撤回评审（recall：reviewing → wait）。
+        请求体只有一个备注。data 为 dto.TestCaseResp。
+      parameters:
+      - description: 用例 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 备注
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.StateActionReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestCaseResp'
+              type: object
+        "400":
+          description: 参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testcase-edit 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 用例不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "409":
+          description: 当前评审阶段不允许该动作
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 提交或撤回用例评审
+      tags:
+      - 测试用例
+  /testcases/{id}/review:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        对评审中的用例出结论：pass → confirmed（可纳入测试单），reject → rejected。
+        评审人与评审时间由服务端按当前登录人写入，不接受请求里指定。
+      parameters:
+      - description: 用例 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 评审结论
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.CaseReviewReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 结论已记录，data 为 dto.TestCaseResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 结论取值不合法（只接受 pass / reject）
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testcase-review 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 用例不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "409":
+          description: 用例不在评审中
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 给出用例评审结论
+      tags:
+      - 测试用例
+  /testcases/{id}/submit-review:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        把用例送进评审（submitreview：wait/rejected → reviewing）或撤回评审（recall：reviewing → wait）。
+        请求体只有一个备注。data 为 dto.TestCaseResp。
+      parameters:
+      - description: 用例 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 备注
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.StateActionReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestCaseResp'
+              type: object
+        "400":
+          description: 参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testcase-edit 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 用例不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "409":
+          description: 当前评审阶段不允许该动作
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 提交或撤回用例评审
+      tags:
+      - 测试用例
+  /testtasks:
+    get:
+      description: |-
+        分页查询测试单，data 为分页对象 {list,total,page,size}，list 元素为 dto.TestTaskResp。
+        每张单都带着单内用例的执行汇总（通过/失败/阻塞/未跑），列表页不必逐行再查。
+      parameters:
+      - description: 按产品过滤
+        in: query
+        name: productId
+        type: integer
+      - description: 按项目过滤
+        in: query
+        name: projectId
+        type: integer
+      - description: 按迭代过滤
+        in: query
+        name: executionId
+        type: integer
+      - description: 按被测构建过滤
+        in: query
+        name: buildId
+        type: integer
+      - description: 状态：wait / doing / blocked / closed
+        in: query
+        name: status
+        type: string
+      - description: 结单结论：pass / fail / blocked
+        in: query
+        name: result
+        type: string
+      - description: 优先级 1-4
+        in: query
+        name: pri
+        type: integer
+      - description: 负责人
+        in: query
+        name: assignedTo
+        type: integer
+      - description: 提单人
+        in: query
+        name: openedBy
+        type: integer
+      - description: 只看未结单
+        in: query
+        name: unfinished
+        type: boolean
+      - description: 只看还没纳入用例的单
+        in: query
+        name: noCase
+        type: boolean
+      - description: 名称/说明模糊匹配
+        in: query
+        name: keywords
+        type: string
+      - description: 页码，默认 1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认 20，最大 200
+        in: query
+        name: size
+        type: integer
+      - description: 排序，如 opened_desc
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 分页对象，data 为 {list,total,page,size}，list 元素为 dto.TestTaskResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-browse 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 测试单列表
+      tags:
+      - 测试单
+    post:
+      consumes:
+      - application/json
+      description: |-
+        建一张测试单，初始状态 wait；caseIds 可一并纳入用例（也可建完再加），data 为 dto.TestTaskResp。
+        迭代必须属于所选项目；构建必须属于所选产品。只有评审通过（confirmed）的用例能被纳入。
+      parameters:
+      - description: 新建测试单请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 创建成功，data 为 dto.TestTaskResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 参数不合法（含用例未评审通过、构建不属于该产品）
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-create 权限，或所选对象不可见
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 产品/用例/迭代不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 新建测试单
+      tags:
+      - 测试单
+  /testtasks/{id}:
+    delete:
+      description: |-
+        删除测试单并移出其中全部用例关联。已有执行记录的单不允许删除 ——
+        删除会毁掉测试证据，不再需要请改为结单。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: 无内容
+          schema:
+            type: string
+        "400":
+          description: 路径参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-delete 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 测试单不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "409":
+          description: 该单已有执行记录，不能删除
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 删除测试单
+      tags:
+      - 测试单
+    get:
+      description: |-
+        返回测试单与单内用例清单（data 为 dto.TestTaskDetailResp）。
+        每条用例会同时给出「纳入时锁定的版本」与「用例此刻的版本」，
+        两者不一致说明纳入之后用例又改过，本单的结果是对着旧版跑的。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 测试单详情，data 为 dto.TestTaskDetailResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 路径参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-browse 权限，或该单不可见
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 测试单不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 测试单详情
+      tags:
+      - 测试单
+    put:
+      consumes:
+      - application/json
+      description: |-
+        整体覆盖测试单的元信息，并可追加用例（caseIds 是「再纳入这些」，不是「只保留这些」）。
+        已结单（closed）的单不能编辑，要先重新打开。data 为 dto.TestTaskResp。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 测试单全量内容
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 编辑成功，data 为 dto.TestTaskResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-edit 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 测试单不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "409":
+          description: 已结单不能编辑
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 编辑测试单
+      tags:
+      - 测试单
+  /testtasks/{id}/activate:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        start（wait/blocked → doing）、block（doing → blocked）、activate（closed → doing）。
+        请求体只有备注。data 为 dto.TestTaskResp。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 备注
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.StateActionReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskResp'
+              type: object
+        "400":
+          description: 参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-start 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 测试单不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "409":
+          description: 当前状态不允许该动作
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 推进测试单
+      tags:
+      - 测试单
+  /testtasks/{id}/assign:
+    post:
+      consumes:
+      - application/json
+      description: 把测试单指派给某人，并通知他。data 为 dto.TestTaskResp。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 负责人
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.AssignUserReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 指派成功，data 为 dto.TestTaskResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 参数不合法或用户不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-assign 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 测试单不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 指派测试单负责人
+      tags:
+      - 测试单
+  /testtasks/{id}/block:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        start（wait/blocked → doing）、block（doing → blocked）、activate（closed → doing）。
+        请求体只有备注。data 为 dto.TestTaskResp。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 备注
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.StateActionReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskResp'
+              type: object
+        "400":
+          description: 参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-start 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 测试单不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "409":
+          description: 当前状态不允许该动作
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 推进测试单
+      tags:
+      - 测试单
+  /testtasks/{id}/cases:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        把评审通过的用例加入测试单，并锁定它们此刻的版本。已在单内的会被跳过（幂等）。
+        未评审通过的用例会被拒绝：它的结论本身还没定，跑出来的结果不该进测试报告。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 用例 id 列表
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.AddTaskCasesReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 纳入后的测试单详情，data 为 dto.TestTaskDetailResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 用例为空、不存在或未评审通过
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-edit 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 测试单或用例不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "409":
+          description: 所选用例都已在单内
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 纳入用例
+      tags:
+      - 测试单
+  /testtasks/{id}/cases/{caseId}:
+    delete:
+      description: |-
+        把用例从测试单移出，只删关联：用例本身与已有的执行记录都不动
+        （移出后仍要能回答「这条用例当初在这个单里跑过、结果是什么」）。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 用例 ID
+        in: path
+        name: caseId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 移出后的测试单详情，data 为 dto.TestTaskDetailResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 路径参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-edit 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 测试单不存在，或单内没有这条用例
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 移出用例
+      tags:
+      - 测试单
+  /testtasks/{id}/cases/{caseId}/assign:
+    put:
+      consumes:
+      - application/json
+      description: 把单内某条用例指派给具体执行人（一个单常常是几个人分头跑的），并通知他。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 用例 ID
+        in: path
+        name: caseId
+        required: true
+        type: integer
+      - description: 执行人
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.AssignUserReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 指派后的测试单详情，data 为 dto.TestTaskDetailResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 参数不合法或用户不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-assign 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 测试单不存在，或单内没有这条用例
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 指派单内用例
+      tags:
+      - 测试单
+  /testtasks/{id}/cases/{caseId}/run:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        记录某条用例本次的结果（pass / fail / blocked）。执行历史是追加式的：
+        同一用例在同一单里可以跑很多次，每次一条记录。
+        步骤的「操作/期望」由后端按用例内容回填并存成快照，不采信客户端传来的副本 ——
+        否则一份被改过的步骤描述会伪装成「当时跑的就是这样」。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 用例 ID
+        in: path
+        name: caseId
+        required: true
+        type: integer
+      - description: 本次执行结果
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestRunReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 执行记录，data 为 dto.TestRunResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 参数不合法（含结论取值不合法）
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testrun-record 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 测试单不存在，或单内没有这条用例
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "409":
+          description: 测试单已结单，不能继续记录结果
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 记录一次执行
+      tags:
+      - 测试执行
+  /testtasks/{id}/finish:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        给出结论（pass / fail / blocked）并关闭测试单，report 可作为结单报告。
+        结论必填：「测完了」本身不描述这次测试的产出。结单会通知提单人。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 结论与报告
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskFinishReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 已结单，data 为 dto.TestTaskResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 缺少结论或取值不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-finish 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 测试单不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 测试单结单
+      tags:
+      - 测试单
+  /testtasks/{id}/runs:
+    get:
+      description: |-
+        查询测试单内的执行记录（data 为分页对象，list 元素为 dto.TestRunResp），
+        可用 caseId 只看某条用例的历次结果。默认按时间倒序。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 只看某条用例
+        in: query
+        name: caseId
+        type: integer
+      - description: 按结论过滤：pass / fail / blocked
+        in: query
+        name: result
+        type: string
+      - description: 页码，默认 1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认 20
+        in: query
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 分页对象，data 为 {list,total,page,size}，list 元素为 dto.TestRunResp
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "400":
+          description: 参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-browse 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 执行历史
+      tags:
+      - 测试执行
+  /testtasks/{id}/start:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        start（wait/blocked → doing）、block（doing → blocked）、activate（closed → doing）。
+        请求体只有备注。data 为 dto.TestTaskResp。
+      parameters:
+      - description: 测试单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 备注
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.StateActionReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskResp'
+              type: object
+        "400":
+          description: 参数不合法
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "401":
+          description: 未登录或令牌已失效
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "403":
+          description: 无 testtask-start 权限
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "404":
+          description: 测试单不存在
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+        "409":
+          description: 当前状态不允许该动作
+          schema:
+            $ref: '#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body'
+      security:
+      - BearerAuth: []
+      summary: 推进测试单
+      tags:
+      - 测试单
   /users:
     get:
       description: 分页查询用户，data 为分页对象 {list,total,page,size}，list 元素为 dto.UserResp。所有筛选项都是「空值即不过滤」。

@@ -9179,6 +9179,1802 @@ const docTemplate = `{
                 }
             }
         },
+        "/testcases": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "分页查询测试用例，data 为分页对象 {list,total,page,size}，list 元素为 dto.TestCaseResp。\n只能看到自己有权限的产品下的用例（可见性按产品判定，与缺陷同一口径）。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试用例"
+                ],
+                "summary": "用例列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "按产品过滤",
+                        "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "按模块过滤",
+                        "name": "moduleId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "按溯源需求过滤",
+                        "name": "storyId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "评审阶段：wait / reviewing / confirmed / rejected",
+                        "name": "stage",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "可执行性：normal / blocked / investigate",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用例类型，如 feature / interface / performance",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "优先级 1-4",
+                        "name": "pri",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "创建人",
+                        "name": "openedBy",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "评审人",
+                        "name": "reviewedBy",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "在标题、关键词、编号上做模糊匹配",
+                        "name": "keywords",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码，默认 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，默认 20，最大 200",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序，如 id_desc",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "分页对象，data 为 {list,total,page,size}，list 元素为 dto.TestCaseResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testcase-browse 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "创建用例及其步骤，data 为 dto.TestCaseResp。初始评审阶段是 wait（待评审）、版本为 1。\n步骤至少一条；顺序由后端按提交顺序重排为 1..n，前端传来的序号不作数。\n模块与溯源需求都必须属于所选产品，否则报参数错误。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试用例"
+                ],
+                "summary": "新建用例",
+                "parameters": [
+                    {
+                        "description": "新建用例请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestCaseReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "创建成功，data 为 dto.TestCaseResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法（含步骤为空、取值不在枚举内）",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testcase-create 权限，或该产品不可见",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "产品或所选需求不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "产品已关闭，不能再维护用例",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testcases/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "返回用例全文与全部步骤（data 为 dto.TestCaseDetailResp）。步骤按 order 升序。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试用例"
+                ],
+                "summary": "用例详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "用例详情，data 为 dto.TestCaseDetailResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "路径参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testcase-browse 权限，或用例所属产品不可见",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "用例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "整体覆盖用例内容与步骤，data 为 dto.TestCaseResp。请求里没带的字段会被写回零值。\n内容真的发生变化时版本 +1；已确认（confirmed）的用例会被打回待评审 ——\n评审针对的是那份内容，内容换了旧结论不该继续生效。\n评审中（reviewing）不允许编辑，要先撤回评审。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试用例"
+                ],
+                "summary": "编辑用例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "用例全量内容",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestCaseReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "编辑成功，data 为 dto.TestCaseResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法（含步骤为空）",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testcase-edit 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "用例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "评审中的用例不能编辑",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "软删除用例，并连带删除它的步骤。data 无内容。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试用例"
+                ],
+                "summary": "删除用例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "无内容",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "路径参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testcase-delete 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "用例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testcases/{id}/recall": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "把用例送进评审（submitreview：wait/rejected → reviewing）或撤回评审（recall：reviewing → wait）。\n请求体只有一个备注。data 为 dto.TestCaseResp。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试用例"
+                ],
+                "summary": "提交或撤回用例评审",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "备注",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.StateActionReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestCaseResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testcase-edit 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "用例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "当前评审阶段不允许该动作",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testcases/{id}/review": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "对评审中的用例出结论：pass → confirmed（可纳入测试单），reject → rejected。\n评审人与评审时间由服务端按当前登录人写入，不接受请求里指定。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试用例"
+                ],
+                "summary": "给出用例评审结论",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "评审结论",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.CaseReviewReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "结论已记录，data 为 dto.TestCaseResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "结论取值不合法（只接受 pass / reject）",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testcase-review 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "用例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "用例不在评审中",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testcases/{id}/submit-review": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "把用例送进评审（submitreview：wait/rejected → reviewing）或撤回评审（recall：reviewing → wait）。\n请求体只有一个备注。data 为 dto.TestCaseResp。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试用例"
+                ],
+                "summary": "提交或撤回用例评审",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "备注",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.StateActionReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestCaseResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testcase-edit 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "用例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "当前评审阶段不允许该动作",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testtasks": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "分页查询测试单，data 为分页对象 {list,total,page,size}，list 元素为 dto.TestTaskResp。\n每张单都带着单内用例的执行汇总（通过/失败/阻塞/未跑），列表页不必逐行再查。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "测试单列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "按产品过滤",
+                        "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "按项目过滤",
+                        "name": "projectId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "按迭代过滤",
+                        "name": "executionId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "按被测构建过滤",
+                        "name": "buildId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态：wait / doing / blocked / closed",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结单结论：pass / fail / blocked",
+                        "name": "result",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "优先级 1-4",
+                        "name": "pri",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "负责人",
+                        "name": "assignedTo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "提单人",
+                        "name": "openedBy",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "只看未结单",
+                        "name": "unfinished",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "只看还没纳入用例的单",
+                        "name": "noCase",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "名称/说明模糊匹配",
+                        "name": "keywords",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码，默认 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，默认 20，最大 200",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序，如 opened_desc",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "分页对象，data 为 {list,total,page,size}，list 元素为 dto.TestTaskResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-browse 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "建一张测试单，初始状态 wait；caseIds 可一并纳入用例（也可建完再加），data 为 dto.TestTaskResp。\n迭代必须属于所选项目；构建必须属于所选产品。只有评审通过（confirmed）的用例能被纳入。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "新建测试单",
+                "parameters": [
+                    {
+                        "description": "新建测试单请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "创建成功，data 为 dto.TestTaskResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法（含用例未评审通过、构建不属于该产品）",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-create 权限，或所选对象不可见",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "产品/用例/迭代不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testtasks/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "返回测试单与单内用例清单（data 为 dto.TestTaskDetailResp）。\n每条用例会同时给出「纳入时锁定的版本」与「用例此刻的版本」，\n两者不一致说明纳入之后用例又改过，本单的结果是对着旧版跑的。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "测试单详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "测试单详情，data 为 dto.TestTaskDetailResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "路径参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-browse 权限，或该单不可见",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "测试单不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "整体覆盖测试单的元信息，并可追加用例（caseIds 是「再纳入这些」，不是「只保留这些」）。\n已结单（closed）的单不能编辑，要先重新打开。data 为 dto.TestTaskResp。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "编辑测试单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "测试单全量内容",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "编辑成功，data 为 dto.TestTaskResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-edit 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "测试单不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "已结单不能编辑",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除测试单并移出其中全部用例关联。已有执行记录的单不允许删除 ——\n删除会毁掉测试证据，不再需要请改为结单。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "删除测试单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "无内容",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "路径参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-delete 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "测试单不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "该单已有执行记录，不能删除",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testtasks/{id}/activate": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "start（wait/blocked → doing）、block（doing → blocked）、activate（closed → doing）。\n请求体只有备注。data 为 dto.TestTaskResp。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "推进测试单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "备注",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.StateActionReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-start 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "测试单不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "当前状态不允许该动作",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testtasks/{id}/assign": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "把测试单指派给某人，并通知他。data 为 dto.TestTaskResp。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "指派测试单负责人",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "负责人",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.AssignUserReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "指派成功，data 为 dto.TestTaskResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法或用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-assign 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "测试单不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testtasks/{id}/block": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "start（wait/blocked → doing）、block（doing → blocked）、activate（closed → doing）。\n请求体只有备注。data 为 dto.TestTaskResp。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "推进测试单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "备注",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.StateActionReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-start 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "测试单不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "当前状态不允许该动作",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testtasks/{id}/cases": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "把评审通过的用例加入测试单，并锁定它们此刻的版本。已在单内的会被跳过（幂等）。\n未评审通过的用例会被拒绝：它的结论本身还没定，跑出来的结果不该进测试报告。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "纳入用例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "用例 id 列表",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.AddTaskCasesReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "纳入后的测试单详情，data 为 dto.TestTaskDetailResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "用例为空、不存在或未评审通过",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-edit 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "测试单或用例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "所选用例都已在单内",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testtasks/{id}/cases/{caseId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "把用例从测试单移出，只删关联：用例本身与已有的执行记录都不动\n（移出后仍要能回答「这条用例当初在这个单里跑过、结果是什么」）。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "移出用例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "用例 ID",
+                        "name": "caseId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "移出后的测试单详情，data 为 dto.TestTaskDetailResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "路径参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-edit 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "测试单不存在，或单内没有这条用例",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testtasks/{id}/cases/{caseId}/assign": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "把单内某条用例指派给具体执行人（一个单常常是几个人分头跑的），并通知他。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "指派单内用例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "用例 ID",
+                        "name": "caseId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "执行人",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.AssignUserReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "指派后的测试单详情，data 为 dto.TestTaskDetailResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法或用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-assign 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "测试单不存在，或单内没有这条用例",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testtasks/{id}/cases/{caseId}/run": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "记录某条用例本次的结果（pass / fail / blocked）。执行历史是追加式的：\n同一用例在同一单里可以跑很多次，每次一条记录。\n步骤的「操作/期望」由后端按用例内容回填并存成快照，不采信客户端传来的副本 ——\n否则一份被改过的步骤描述会伪装成「当时跑的就是这样」。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试执行"
+                ],
+                "summary": "记录一次执行",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "用例 ID",
+                        "name": "caseId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "本次执行结果",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestRunReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "执行记录，data 为 dto.TestRunResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法（含结论取值不合法）",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testrun-record 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "测试单不存在，或单内没有这条用例",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "测试单已结单，不能继续记录结果",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testtasks/{id}/finish": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "给出结论（pass / fail / blocked）并关闭测试单，report 可作为结单报告。\n结论必填：「测完了」本身不描述这次测试的产出。结单会通知提单人。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "测试单结单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "结论与报告",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskFinishReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "已结单，data 为 dto.TestTaskResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "缺少结论或取值不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-finish 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "测试单不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testtasks/{id}/runs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "查询测试单内的执行记录（data 为分页对象，list 元素为 dto.TestRunResp），\n可用 caseId 只看某条用例的历次结果。默认按时间倒序。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试执行"
+                ],
+                "summary": "执行历史",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "只看某条用例",
+                        "name": "caseId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "按结论过滤：pass / fail / blocked",
+                        "name": "result",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码，默认 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，默认 20",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "分页对象，data 为 {list,total,page,size}，list 元素为 dto.TestRunResp",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-browse 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/testtasks/{id}/start": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "start（wait/blocked → doing）、block（doing → blocked）、activate（closed → doing）。\n请求体只有备注。data 为 dto.TestTaskResp。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "测试单"
+                ],
+                "summary": "推进测试单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "测试单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "备注",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.StateActionReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录或令牌已失效",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "403": {
+                        "description": "无 testtask-start 权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "404": {
+                        "description": "测试单不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "当前状态不允许该动作",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_pkg_response.Body"
+                        }
+                    }
+                }
+            }
+        },
         "/users": {
             "get": {
                 "security": [
@@ -9777,6 +11573,36 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "github_com_xywf221_xuliu_internal_dto.AddTaskCasesReq": {
+            "type": "object",
+            "required": [
+                "caseIds"
+            ],
+            "properties": {
+                "caseIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "github_com_xywf221_xuliu_internal_dto.AssignUserReq": {
+            "type": "object",
+            "required": [
+                "assignedTo"
+            ],
+            "properties": {
+                "assignedTo": {
+                    "type": "integer"
+                },
+                "comment": {
+                    "type": "string",
+                    "maxLength": 255
+                }
+            }
+        },
         "github_com_xywf221_xuliu_internal_dto.BugActivateReq": {
             "type": "object",
             "properties": {
@@ -10214,6 +12040,26 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_xywf221_xuliu_internal_dto.CaseReviewReq": {
+            "type": "object",
+            "required": [
+                "result"
+            ],
+            "properties": {
+                "comment": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "result": {
+                    "description": "Result 取 pass（确认可用）或 reject（驳回）。",
+                    "type": "string",
+                    "enum": [
+                        "pass",
+                        "reject"
+                    ]
+                }
+            }
+        },
         "github_com_xywf221_xuliu_internal_dto.ChangePasswordReq": {
             "type": "object",
             "required": [
@@ -10255,6 +12101,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "objectType": {
+                    "description": "ObjectType 的白名单只是第一道；真正的可见性判定在 Gate，\n它按对象类型去解析归属（不认识的类型一律拒绝）。\n新增一种可评论的对象时，这里和 Gate.Locate 要一起加，\n只加一边会得到「参数合法但查不到对象」这种最难懂的报错。",
                     "type": "string",
                     "enum": [
                         "story",
@@ -10264,7 +12111,9 @@ const docTemplate = `{
                         "execution",
                         "product",
                         "productplan",
-                        "module"
+                        "module",
+                        "case",
+                        "testtask"
                     ]
                 }
             }
@@ -11129,12 +12978,13 @@ const docTemplate = `{
                     "maxLength": 60
                 },
                 "type": {
-                    "description": "Type 取 story / task / bug。",
+                    "description": "Type 取 story / task / bug / case。\ncase 是测试用例那棵树：同一产品下四类树各自独立，\n否则「需求模块」和「用例模块」会混在同一个父节点下互相穿插。",
                     "type": "string",
                     "enum": [
                         "story",
                         "task",
-                        "bug"
+                        "bug",
+                        "case"
                     ]
                 }
             }
@@ -12838,6 +14688,470 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "userId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_xywf221_xuliu_internal_dto.TestCaseReq": {
+            "type": "object",
+            "required": [
+                "productId",
+                "steps",
+                "title"
+            ],
+            "properties": {
+                "desc": {
+                    "type": "string"
+                },
+                "keywords": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "moduleId": {
+                    "type": "integer"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "precondition": {
+                    "type": "string"
+                },
+                "pri": {
+                    "type": "integer",
+                    "maximum": 4
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "Status 是可执行性：normal/blocked/investigate。评审阶段（stage）不在这里，\n它只能走状态机动作，普通编辑改不了 —— 否则就绕过了评审。",
+                    "type": "string",
+                    "enum": [
+                        "normal",
+                        "blocked",
+                        "investigate"
+                    ]
+                },
+                "steps": {
+                    "description": "Steps 至少一步：这是用例能否被执行与判定的底线。",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestCaseStepReq"
+                    }
+                },
+                "storyId": {
+                    "description": "StoryID 是可追溯的需求来源；为 0 表示这条用例不对应具体需求。",
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "type": {
+                    "description": "Type 取 feature/interface/performance/config/security/others。",
+                    "type": "string",
+                    "enum": [
+                        "feature",
+                        "interface",
+                        "performance",
+                        "config",
+                        "security",
+                        "others"
+                    ]
+                }
+            }
+        },
+        "github_com_xywf221_xuliu_internal_dto.TestCaseResp": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "description": "Actions 来自状态机（按 stage 计算），前端据此渲染按钮。",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TransitionResp"
+                    }
+                },
+                "code": {
+                    "description": "Code 是给人看的编号，如 CASE-12；主键仍是自增 ID。",
+                    "type": "string"
+                },
+                "commentCount": {
+                    "type": "integer"
+                },
+                "desc": {
+                    "type": "string"
+                },
+                "fileCount": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "keywords": {
+                    "type": "string"
+                },
+                "lastEditedBy": {
+                    "type": "integer"
+                },
+                "lastEditedDate": {
+                    "type": "string"
+                },
+                "moduleId": {
+                    "type": "integer"
+                },
+                "moduleName": {
+                    "type": "string"
+                },
+                "openedBy": {
+                    "type": "integer"
+                },
+                "openedByName": {
+                    "type": "string"
+                },
+                "openedDate": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "precondition": {
+                    "type": "string"
+                },
+                "pri": {
+                    "type": "integer"
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "productName": {
+                    "description": "ProductName/ModuleName 由 service 批量补全，列表不必逐行查。",
+                    "type": "string"
+                },
+                "reviewedBy": {
+                    "type": "integer"
+                },
+                "reviewedByName": {
+                    "type": "string"
+                },
+                "reviewedDate": {
+                    "type": "string"
+                },
+                "stage": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "stepCount": {
+                    "type": "integer"
+                },
+                "storyId": {
+                    "type": "integer"
+                },
+                "storyStale": {
+                    "description": "StoryStale 就是上面那个比对的结论，由后端给：\n补齐需求标题时已经把需求整行查出来了，版本就在同一份结果里，\n顺手算掉比让前端再查一次需求更省，也更不容易各算各的。",
+                    "type": "boolean"
+                },
+                "storyTitle": {
+                    "type": "string"
+                },
+                "storyVersion": {
+                    "description": "StoryVersion 是用例记录时锁定的需求版本；与需求当前版本不一致\n就说明需求变了、这条用例要复核。",
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_xywf221_xuliu_internal_dto.TestCaseStepReq": {
+            "type": "object",
+            "required": [
+                "step"
+            ],
+            "properties": {
+                "expect": {
+                    "type": "string",
+                    "maxLength": 2000
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "step": {
+                    "type": "string",
+                    "maxLength": 2000
+                }
+            }
+        },
+        "github_com_xywf221_xuliu_internal_dto.TestRunReq": {
+            "type": "object",
+            "required": [
+                "result"
+            ],
+            "properties": {
+                "bugIds": {
+                    "description": "BugIDs 是本次发现/关联的缺陷。失败时不强制填：\n先记录结果、回头再建缺陷是常见顺序。",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "buildId": {
+                    "description": "BuildID 是实际跑的构建；留空则沿用测试单上的构建。",
+                    "type": "integer"
+                },
+                "duration": {
+                    "description": "Duration 是本次执行耗时（小时）。",
+                    "type": "number",
+                    "minimum": 0
+                },
+                "note": {
+                    "type": "string"
+                },
+                "result": {
+                    "description": "Result 是这条用例本次的结论。",
+                    "type": "string",
+                    "enum": [
+                        "pass",
+                        "fail",
+                        "blocked"
+                    ]
+                },
+                "steps": {
+                    "description": "Steps 是逐步骤的实际情况，用于「断在第几步」。",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestRunStepReq"
+                    }
+                }
+            }
+        },
+        "github_com_xywf221_xuliu_internal_dto.TestRunStepReq": {
+            "type": "object",
+            "properties": {
+                "actual": {
+                    "type": "string"
+                },
+                "expect": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "result": {
+                    "description": "Result 取 pass/fail/blocked；留空表示跟随整条用例的结论。",
+                    "type": "string",
+                    "enum": [
+                        "pass",
+                        "fail",
+                        "blocked"
+                    ]
+                },
+                "step": {
+                    "description": "Step/Expect 由后端按用例当时的版本回填，客户端不必传。",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_xywf221_xuliu_internal_dto.TestTaskFinishReq": {
+            "type": "object",
+            "required": [
+                "result"
+            ],
+            "properties": {
+                "report": {
+                    "type": "string"
+                },
+                "result": {
+                    "description": "Result 取 pass / fail / blocked。",
+                    "type": "string",
+                    "enum": [
+                        "pass",
+                        "fail",
+                        "blocked"
+                    ]
+                }
+            }
+        },
+        "github_com_xywf221_xuliu_internal_dto.TestTaskReq": {
+            "type": "object",
+            "required": [
+                "name",
+                "productId"
+            ],
+            "properties": {
+                "assignedTo": {
+                    "type": "integer"
+                },
+                "begin": {
+                    "description": "Begin/End 是计划起止，格式 YYYY-MM-DD。",
+                    "type": "string"
+                },
+                "buildId": {
+                    "type": "integer"
+                },
+                "caseIds": {
+                    "description": "CaseIDs 是新建/编辑时一并纳入的用例（可选）。\n与「先建单再加用例」两条路都通：前端从需求列表勾选建单更省事。",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "desc": {
+                    "type": "string"
+                },
+                "end": {
+                    "type": "string"
+                },
+                "executionId": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "pri": {
+                    "type": "integer",
+                    "maximum": 4
+                },
+                "productId": {
+                    "description": "ProductID 必填：测试总是围绕某个产品。",
+                    "type": "integer"
+                },
+                "projectId": {
+                    "description": "ProjectID/ExecutionID 可选（线上回归可能不属于任何项目）。",
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_xywf221_xuliu_internal_dto.TestTaskResp": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TransitionResp"
+                    }
+                },
+                "assignedTo": {
+                    "type": "integer"
+                },
+                "assignedToName": {
+                    "type": "string"
+                },
+                "begin": {
+                    "type": "string"
+                },
+                "buildId": {
+                    "type": "integer"
+                },
+                "buildName": {
+                    "type": "string"
+                },
+                "caseCount": {
+                    "type": "integer"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "desc": {
+                    "type": "string"
+                },
+                "end": {
+                    "type": "string"
+                },
+                "executionId": {
+                    "type": "integer"
+                },
+                "finishedAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "lastRunDate": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "openedBy": {
+                    "type": "integer"
+                },
+                "openedByName": {
+                    "type": "string"
+                },
+                "openedDate": {
+                    "type": "string"
+                },
+                "pri": {
+                    "type": "integer"
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "productName": {
+                    "type": "string"
+                },
+                "projectId": {
+                    "type": "integer"
+                },
+                "projectName": {
+                    "type": "string"
+                },
+                "report": {
+                    "type": "string"
+                },
+                "result": {
+                    "description": "Result 只在已结单时有值：pass / fail / blocked。",
+                    "type": "string"
+                },
+                "startedAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "summary": {
+                    "description": "Summary 是单内用例的逐结论计数（pass/fail/blocked/unrun 四种）。",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_xywf221_xuliu_internal_dto.TestTaskSummary"
+                        }
+                    ]
+                }
+            }
+        },
+        "github_com_xywf221_xuliu_internal_dto.TestTaskSummary": {
+            "type": "object",
+            "properties": {
+                "blocked": {
+                    "type": "integer"
+                },
+                "fail": {
+                    "type": "integer"
+                },
+                "pass": {
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "Total 是纳入的用例总数（上面四项之和）。",
+                    "type": "integer"
+                },
+                "unrun": {
                     "type": "integer"
                 }
             }

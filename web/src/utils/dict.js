@@ -211,6 +211,46 @@ export const productStatuses = [
   { value: 'closed', label: '已关闭' },
 ]
 
+// 测试用例 —— internal/model/test.go / internal/workflow/machines.go
+//
+// 用例有两个正交的枚举：stage 是评审阶段（能不能进测试单），
+// status 是可执行性（这条用例本身还能不能跑）。
+export const caseStages = [
+  { value: 'wait', label: '待评审' },
+  { value: 'reviewing', label: '评审中' },
+  { value: 'confirmed', label: '已确认' },
+  { value: 'rejected', label: '已驳回' },
+]
+
+export const caseStatuses = [
+  { value: 'normal', label: '正常' },
+  { value: 'blocked', label: '阻塞' },
+  { value: 'investigate', label: '待调查' },
+]
+
+export const caseTypes = [
+  { value: 'feature', label: '功能' },
+  { value: 'interface', label: '接口' },
+  { value: 'performance', label: '性能' },
+  { value: 'config', label: '配置' },
+  { value: 'security', label: '安全' },
+  { value: 'others', label: '其他' },
+]
+
+// 测试单与执行结果 —— internal/workflow/machines.go / model/enums.go
+export const testTaskStatuses = [
+  { value: 'wait', label: '未开始' },
+  { value: 'doing', label: '进行中' },
+  { value: 'blocked', label: '已阻塞' },
+  { value: 'closed', label: '已结单' },
+]
+
+export const testRunResults = [
+  { value: 'pass', label: '通过' },
+  { value: 'fail', label: '失败' },
+  { value: 'blocked', label: '阻塞' },
+]
+
 // 状态色：后端每个实体都回了 statusLabel，但颜色属于展示口味，
 // 不必为此多一次接口字段，前端用一张表定下来。
 const statusColors = {
@@ -232,6 +272,13 @@ const statusColors = {
   suspended: 'warning',
   // 产品
   normal: 'success',
+  // 测试
+  confirmed: 'success',
+  rejected: 'danger',
+  reviewing: 'warning',
+  blocked: 'warning',
+  pass: 'success',
+  fail: 'danger',
 }
 
 export function statusColor(status) {

@@ -153,13 +153,20 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	bugRepo := repository.NewBugRepo(gdb)
 	noticeRepo := repository.NewNoticeRepo(gdb)
 
+	caseRepo := repository.NewTestCaseRepo(gdb)
+	caseStepRepo := repository.NewTestCaseStepRepo(gdb)
+	testTaskRepo := repository.NewTestTaskRepo(gdb)
+	testTaskCaseRepo := repository.NewTestTaskCaseRepo(gdb)
+	testRunRepo := repository.NewTestRunRepo(gdb)
+	buildRepo := repository.NewBuildRepo(gdb)
+
 	// ---- 权限判定 ----
 	enforcer := acl.New(gdb)
 
 	// 对象级访问网关：把「这条评论/这个附件/这个任务挂在谁身上」翻译成
 	// 「它属于哪个产品/项目/私有项目的白名单」，再判定可见性。
 	gate := service.NewGate(enforcer, productRepo, storyRepo, planRepo, moduleRepo,
-		projectRepo, executionRepo, taskRepo, bugRepo)
+		projectRepo, executionRepo, taskRepo, bugRepo, caseRepo, testTaskRepo)
 
 	// ---- 服务层 ----
 	// 通知服务先建：任务、需求、缺陷三个服务都要靠它「通知下一个动手的人」，
@@ -178,7 +185,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	productSvc := service.NewProductService(gdb, productRepo, productlineRepo,
 		storyRepo, planRepo, userRepo, gate)
 	moduleSvc := service.NewModuleService(gdb, moduleRepo, productRepo, storyRepo,
-		taskRepo, bugRepo, gate)
+		taskRepo, bugRepo, caseRepo, gate)
 	planSvc := service.NewPlanService(gdb, planRepo, productRepo, storyRepo, gate)
 
 	storySvc := service.NewStoryService(gdb, storyRepo, storySpecRepo, storyReviewRepo,
@@ -199,6 +206,16 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	bugSvc := service.NewBugService(gdb, bugRepo, productRepo, moduleRepo, planRepo,
 		projectRepo, executionRepo, taskRepo, storyRepo, userRepo,
 		fileRepo, commentRepo, storySvc, gate, noticeSvc)
+
+	// 用例服务：目前只有用例本身（含步骤与评审）。测试单与执行记录落地时，
+	// 「用例被引用就不能删」这类约束要加在它身上，而不是散到测试单服务里。
+	caseSvc := service.NewTestCaseService(gdb, caseRepo, caseStepRepo,
+		productRepo, moduleRepo, storyRepo, userRepo, fileRepo, commentRepo, gate)
+
+	// 测试单服务：结单与指派要发通知，所以它依赖通知服务（与任务/缺陷一样）。
+	testTaskSvc := service.NewTestTaskService(gdb, testTaskRepo, testTaskCaseRepo,
+		testRunRepo, caseRepo, caseStepRepo, productRepo, projectRepo, executionRepo,
+		buildRepo, userRepo, gate, noticeSvc)
 
 	commentSvc := service.NewCommentService(gdb, commentRepo, fileRepo, userRepo, gate)
 	fileSvc := service.NewFileService(gdb, fileRepo, userRepo, gate, app.Storage, storageCfg)
@@ -227,6 +244,9 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 		Executions: handler.NewExecutionHandler(executionSvc),
 		Tasks:      handler.NewTaskHandler(taskSvc),
 		Bugs:       handler.NewBugHandler(bugSvc),
+
+		TestCases: handler.NewTestCaseHandler(caseSvc),
+		TestTasks: handler.NewTestTaskHandler(testTaskSvc),
 
 		Comments: handler.NewCommentHandler(commentSvc),
 		Files:    handler.NewFileHandler(fileSvc),

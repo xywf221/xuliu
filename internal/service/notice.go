@@ -79,6 +79,10 @@ var objectPathSegments = map[string]string{
 	model.ObjectTypeProduct:   "products",
 	model.ObjectTypePlan:      "plans",
 	model.ObjectTypeModule:    "modules",
+	// 测试域。这两个要和前端路由一字不差：路径段错了不会报错，
+	// 只会让用户点通知后落到一个空白页。
+	model.ObjectTypeCase:     "testcases",
+	model.ObjectTypeTestTask: "testtasks",
 }
 
 // objectPath 生成前端跳转路径。

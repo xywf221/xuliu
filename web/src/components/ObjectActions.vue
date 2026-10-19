@@ -44,20 +44,31 @@ const form = ref({
   closedReason: '',
   consumed: 0,
   reviewers: [],
+  // 测试单结单的结论与报告
+  result: 'pass',
+  report: '',
 })
 
-// 按 kind + action 决定弹窗里要填什么。
+// 按「对象类型 + kind + action」决定弹窗里要填什么。
+//
+// 动作名在不同域里会重名：close 在需求是「关闭并给原因」，在任务里只要备注；
+// finish 在任务是「完成并报工时」，在测试单是「结单并给结论」。
+// 所以这里必须带上 objectType 一起判断 —— 只看动作名会把需求的关闭原因
+// 挂到测试单的驳回上。
 const fields = computed(() => {
   const a = current.value
   if (!a) return {}
   return {
     assignee: a.kind === 'assign',
-    resolution: a.action === 'resolve',
-    closedReason: a.action === 'close' || a.action === 'reject',
-    effort: a.action === 'finish',
-    reviewers: a.action === 'submitreview',
+    resolution: props.objectType === 'bug' && a.action === 'resolve',
+    closedReason:
+      props.objectType === 'story' && (a.action === 'close' || a.action === 'reject'),
+    effort: props.objectType === 'task' && a.action === 'finish',
+    reviewers: props.objectType === 'story' && a.action === 'submitreview',
     // 评审结论只需一句评语
-    review: isReviewAction(a.action),
+    review: props.objectType === 'story' && isReviewAction(a.action),
+    // 测试单结单：结论必填，报告可选
+    testTaskFinish: props.objectType === 'testtask' && a.action === 'finish',
   }
 })
 
@@ -82,6 +93,8 @@ function onClick(action) {
     closedReason: action.action === 'reject' ? 'willnotdo' : 'done',
     consumed: 0,
     reviewers: [],
+    result: 'pass',
+    report: '',
   }
   dialogVisible.value = true
 }
@@ -105,6 +118,10 @@ async function submit() {
   }
   if (fields.value.reviewers && form.value.reviewers.length === 0) {
     ElMessage.warning('请至少选择一位评审人')
+    return
+  }
+  if (fields.value.testTaskFinish && !form.value.result) {
+    ElMessage.warning('请选择本次测试的结论')
     return
   }
 
@@ -196,6 +213,23 @@ async function onClickWrap(action) {
               :label="opt.label"
             />
           </el-select>
+        </el-form-item>
+
+        <el-form-item v-if="fields.testTaskFinish" label="测试结论" required>
+          <el-select v-model="form.result" style="width: 100%">
+            <el-option label="全部通过" value="pass" />
+            <el-option label="部分失败" value="fail" />
+            <el-option label="被阻塞" value="blocked" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item v-if="fields.testTaskFinish" label="测试报告">
+          <el-input
+            v-model="form.report"
+            type="textarea"
+            :rows="4"
+            placeholder="本次测试覆盖了什么、发现了什么、结论依据"
+          />
         </el-form-item>
 
         <el-form-item v-if="fields.effort" label="消耗工时">

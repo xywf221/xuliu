@@ -50,6 +50,10 @@ type Deps struct {
 	// 缺陷域
 	Bugs *handler.BugHandler
 
+	// 测试域
+	TestCases *handler.TestCaseHandler
+	TestTasks *handler.TestTaskHandler
+
 	// 通用对象
 	Comments *handler.CommentHandler
 	Files    *handler.FileHandler
@@ -110,6 +114,7 @@ func New(deps Deps) (*gin.Engine, error) {
 	registerProject(api, deps)
 	registerTask(api, deps)
 	registerBug(api, deps)
+	registerTest(api, deps)
 	registerCommon(api, deps)
 	registerWorkbench(api, deps)
 

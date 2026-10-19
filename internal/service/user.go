@@ -458,3 +458,22 @@ func currentUserID(ctx context.Context) uint {
 	}
 	return 0
 }
+
+// assertUserExists 校验指定用户存在（userID 为 0 表示未指派，直接放过）。
+//
+// 各域原本都写了一份同样的检查（缺陷的 assertAssignee 就是它），
+// 这里收成包级函数：指派类动作的校验规则本来就该一致 ——
+// 「指派给一个不存在的人」在任何域里都是同一件事。
+func assertUserExists(ctx context.Context, users *repository.UserRepo, userID uint) error {
+	if userID == 0 {
+		return nil
+	}
+	user, err := users.FindByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return apperr.New(apperr.UserNotFound)
+	}
+	return nil
+}

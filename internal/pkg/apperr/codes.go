@@ -131,6 +131,22 @@ const (
 	// StoryFromBug 表示需求是由缺陷转入的，此时不能删除。
 	StoryFromBug Code = "story_from_bug"
 
+	// ---- 测试用例 ----
+	TestCaseNotFound     Code = "testcase_not_found"
+	TestCaseStageInvalid Code = "testcase_stage_invalid" // 当前评审阶段不允许该动作
+	TestCaseStepRequired Code = "testcase_step_required" // 用例至少要有一步，否则无法逐步判定
+
+	// ---- 测试单与执行 ----
+	TestTaskNotFound         Code = "testtask_not_found"
+	TestTaskStatusInvalid    Code = "testtask_status_invalid"
+	TestTaskResultRequired   Code = "testtask_result_required"    // 结单必须给结论
+	TestTaskCaseExists       Code = "testtask_case_exists"        // 用例已在单里
+	TestTaskCaseNotFound     Code = "testtask_case_not_found"     // 单里没有这条用例
+	TestTaskCaseNotConfirmed Code = "testtask_case_not_confirmed" // 未确认的用例不能入单
+	TestRunNotFound          Code = "testrun_not_found"
+	// TestTaskHasRuns 是「已经有执行记录的测试单不能删」。
+	TestTaskHasRuns Code = "testtask_has_runs"
+
 	// ---- 附件 ----
 	FileNotFound       Code = "file_not_found"
 	FileTooLarge       Code = "file_too_large"
@@ -265,6 +281,22 @@ func init() {
 	Define(BugDuplicateTargetRequired, http.StatusBadRequest, "解决方案为「重复」时必须指定重复的缺陷")
 	Define(BugHasDownstream, http.StatusConflict, "该缺陷已转为需求或任务，无法删除；如需下线请改为关闭")
 	Define(StoryFromBug, http.StatusConflict, "该需求是由缺陷转入的，无法删除；如需下线请改为关闭")
+
+	// 测试用例
+	Define(TestCaseNotFound, http.StatusNotFound, "测试用例不存在")
+	Define(TestCaseStageInvalid, http.StatusConflict, "用例当前评审阶段不允许该操作")
+	Define(TestCaseStepRequired, http.StatusBadRequest, "测试用例至少要有一个操作步骤")
+
+	// 测试单与执行
+	Define(TestTaskNotFound, http.StatusNotFound, "测试单不存在")
+	Define(TestTaskStatusInvalid, http.StatusConflict, "测试单当前状态不允许该操作")
+	Define(TestTaskResultRequired, http.StatusBadRequest, "结单必须给出测试结论")
+	Define(TestTaskCaseExists, http.StatusConflict, "该用例已在测试单里")
+	Define(TestTaskCaseNotFound, http.StatusNotFound, "测试单里没有这条用例")
+	Define(TestTaskCaseNotConfirmed, http.StatusBadRequest, "只有评审通过的用例才能纳入测试单")
+	Define(TestRunNotFound, http.StatusNotFound, "测试执行记录不存在")
+	Define(TestTaskHasRuns, http.StatusConflict,
+		"该测试单已有执行记录，删除会毁掉测试证据；如不再需要请改为结单")
 
 	// 附件
 	Define(FileNotFound, http.StatusNotFound, "附件不存在")

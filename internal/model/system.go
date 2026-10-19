@@ -233,6 +233,9 @@ const (
 	ActionRecordWork   = "RecordWorkhour" // 记录工时
 	ActionRestored     = "restored"       // 从回收站还原
 	ActionMoved        = "moved"          // 模块调整
+	ActionRun          = "run"            // 执行用例（一次测试运行）
+	ActionBlocked      = "blocked"        // 阻塞
+	ActionUnblocked    = "unblocked"      // 解除阻塞
 )
 
 // 操作历史的对象类型。
@@ -247,6 +250,8 @@ const (
 	ObjectTypeModule    = "module"
 	ObjectTypeUser      = "user"
 	ObjectTypeCase      = "case"
+	ObjectTypeTestTask  = "testtask"
+	ObjectTypeTestRun   = "testrun"
 )
 
 // Notice 站内通知。

@@ -44,7 +44,7 @@ type Config struct {
 func (c Config) dialector() (gorm.Dialector, error) {
 	switch c.Driver {
 	case SQLite, "":
-		return gormlite.Open(c.DSN), nil
+		return gormlite.Open(sqliteDSN(c.DSN)), nil
 	case MySQL:
 		return mysql.Open(c.DSN), nil
 	case Postgres:
@@ -53,6 +53,64 @@ func (c Config) dialector() (gorm.Dialector, error) {
 		return nil, fmt.Errorf("db: 不支持的驱动 %q（可选 %s / %s / %s）",
 			c.Driver, SQLite, MySQL, Postgres)
 	}
+}
+
+// sqlitePragmas 是每条新连接都要执行的 PRAGMA。
+//
+// 为什么非设不可 —— 实测数字：建这 35 张表，默认设置要 1.58 秒，
+// 加上下面三条只要 63 毫秒（差 25 倍）。默认 journal_mode 是 rollback，
+// 每条 DDL 都单独提交并 fsync，而 Windows 上 fsync 特别慢。
+// 「首次启动要等半分钟」和「go test ./internal/service 跑两分钟」
+// 都是这一件事：服务层 73 个测试各自建一遍库，光建表就吃掉约 110 秒。
+//
+//   - journal_mode=WAL：读不再被写挡住；这个设置会写进库文件，持久生效。
+//   - synchronous=NORMAL：进程崩溃仍然安全，只在断电时可能丢掉最后一个事务。
+//     这是**取舍**不是免费午餐 —— 需要断电零丢失的环境应改回 FULL
+//     （代价就是回到上面那个 1.58 秒）。
+//
+// 没有设 busy_timeout：实测这个驱动的默认值是 60000 毫秒（不是 sqlite 本身的 0），
+// 再加一条只会把它调小 —— 曾写过「默认 0、并发立刻抛 SQLITE_BUSY」，
+// 那是对驱动的猜测而非实测，被 TestSQLitePragmasApply 打翻了。
+//
+// 没有加 foreign_keys(1)：模型里全是普通 uint 列而不是 GORM 关联字段，
+// 生成的表根本没有外键约束（可对照建表语句看 pm_task），开了也无从生效。
+var sqlitePragmas = []string{
+	"journal_mode(WAL)",
+	"synchronous(NORMAL)",
+}
+
+// sqliteDSN 把 DSN 整理成能带上 PRAGMA 的 URI 形式。
+//
+// _pragma 只能走 URI 查询串（驱动在打开连接时解析它），而 URI 形式
+// 必须带 file: 前缀；Windows 路径里的反斜杠还要换成正斜杠，
+// 否则 "C:\Users\..." 会被当成普通字符而找不到文件。
+func sqliteDSN(dsn string) string {
+	trimmed := strings.TrimSpace(dsn)
+	switch {
+	case trimmed == "" || trimmed == ":memory:":
+		// 内存库既没有 fsync 问题，也没有可以改写的路径形式。
+		return trimmed
+	case strings.HasPrefix(trimmed, "file:"):
+		// 调用方自己带了 _pragma 就完全尊重他的设置，不叠加。
+		if strings.Contains(trimmed, "_pragma=") {
+			return trimmed
+		}
+		return appendSQLitePragmas(trimmed)
+	default:
+		return appendSQLitePragmas("file:" + filepath.ToSlash(trimmed))
+	}
+}
+
+func appendSQLitePragmas(uri string) string {
+	separator := "?"
+	if strings.Contains(uri, "?") {
+		separator = "&"
+	}
+	clauses := make([]string, 0, len(sqlitePragmas))
+	for _, p := range sqlitePragmas {
+		clauses = append(clauses, "_pragma="+p)
+	}
+	return uri + separator + strings.Join(clauses, "&")
 }
 
 // logLevel 把配置里的字符串映射为 gorm 的日志级别。

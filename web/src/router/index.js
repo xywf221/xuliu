@@ -83,6 +83,30 @@ const routes = [
         meta: { title: '缺陷详情', priv: 'bug-browse', activeMenu: '/bugs' },
       },
       {
+        path: 'testcases',
+        name: 'testcases',
+        component: () => import('@/views/TestCaseListView.vue'),
+        meta: { title: '用例', priv: 'testcase-browse', menu: true, icon: 'DocumentChecked' },
+      },
+      {
+        path: 'testcases/:id',
+        name: 'testcase-detail',
+        component: () => import('@/views/TestCaseDetailView.vue'),
+        meta: { title: '用例详情', priv: 'testcase-browse', activeMenu: '/testcases' },
+      },
+      {
+        path: 'testtasks',
+        name: 'testtasks',
+        component: () => import('@/views/TestTaskListView.vue'),
+        meta: { title: '测试单', priv: 'testtask-browse', menu: true, icon: 'List' },
+      },
+      {
+        path: 'testtasks/:id',
+        name: 'testtask-detail',
+        component: () => import('@/views/TestTaskDetailView.vue'),
+        meta: { title: '测试单详情', priv: 'testtask-browse', activeMenu: '/testtasks' },
+      },
+      {
         path: 'notices',
         name: 'notices',
         component: () => import('@/views/NoticeListView.vue'),

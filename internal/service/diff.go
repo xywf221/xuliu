@@ -412,3 +412,100 @@ func translateDateErr(err error, code apperr.Code) error {
 	}
 	return apperr.Wrap(code, err)
 }
+
+// caseDiff 比对用例字段。
+//
+// 与任务/缺陷同一套路：字段名用数据库列名（时间线读出来的是人话，
+// 不是 Go 字段名），没列进 caseFieldLabels 的字段直接跳过。
+func caseDiff(c *model.TestCase, fields map[string]any) []history.Change {
+	out := make([]history.Change, 0, len(fields))
+	for field, value := range fields {
+		if _, ok := caseFieldLabels[field]; !ok {
+			continue
+		}
+		old, new := valueString(oldCaseValue(c, field)), valueString(value)
+		if old == new {
+			continue
+		}
+		out = append(out, history.Change{Field: field, Old: old, New: new})
+	}
+	sortChanges(out)
+	return out
+}
+
+// testTaskDiff 比对测试单字段。
+func testTaskDiff(t *model.TestTask, fields map[string]any) []history.Change {
+	out := make([]history.Change, 0, len(fields))
+	for field, value := range fields {
+		if _, ok := testTaskFieldLabels[field]; !ok {
+			continue
+		}
+		old, new := valueString(oldTestTaskValue(t, field)), valueString(value)
+		if old == new {
+			continue
+		}
+		out = append(out, history.Change{Field: field, Old: old, New: new})
+	}
+	sortChanges(out)
+	return out
+}
+
+// oldTestTaskValue 按列名取值，供 testTaskDiff 比对。
+func oldTestTaskValue(t *model.TestTask, field string) any {
+	switch field {
+	case "name":
+		return t.Name
+	case "desc":
+		return t.Desc
+	case "pri":
+		return t.Pri
+	case "status":
+		return t.Status
+	case "result":
+		return t.Result
+	case "report":
+		return t.Report
+	case "assigned_to":
+		return t.AssignedTo
+	case "build_id":
+		return t.BuildID
+	case "begin":
+		return t.Begin
+	case "end":
+		return t.End
+	case "case_count":
+		return t.CaseCount
+	}
+	return nil
+}
+
+// oldCaseValue 按列名取值，供 caseDiff 比对。
+func oldCaseValue(c *model.TestCase, field string) any {
+	switch field {
+	case "title":
+		return c.Title
+	case "precondition":
+		return c.Precondition
+	case "keywords":
+		return c.Keywords
+	case "desc":
+		return c.Desc
+	case "type":
+		return c.Type
+	case "pri":
+		return c.Pri
+	case "stage":
+		return c.Stage
+	case "status":
+		return c.Status
+	case "version":
+		return c.Version
+	case "module_id":
+		return c.ModuleID
+	case "story_id":
+		return c.StoryID
+	case "reviewed_by":
+		return c.ReviewedBy
+	}
+	return nil
+}

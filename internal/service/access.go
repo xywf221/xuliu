@@ -76,6 +76,10 @@ type Gate struct {
 	executions *repository.ExecutionRepo
 	tasks      *repository.TaskRepo
 	bugs       *repository.BugRepo
+	// cases 让「这条用例的评论/附件谁看得到」也走同一扇门。
+	// 用例只挂产品，所以解析出来的位置只有 ProductID 一层。
+	cases     *repository.TestCaseRepo
+	testTasks *repository.TestTaskRepo
 }
 
 // NewGate 构造访问网关。
@@ -89,11 +93,13 @@ func NewGate(
 	executions *repository.ExecutionRepo,
 	tasks *repository.TaskRepo,
 	bugs *repository.BugRepo,
+	cases *repository.TestCaseRepo,
+	testTasks *repository.TestTaskRepo,
 ) *Gate {
 	return &Gate{
 		access: access, products: products, stories: stories, plans: plans,
 		modules: modules, projects: projects, executions: executions, tasks: tasks,
-		bugs: bugs,
+		bugs: bugs, cases: cases, testTasks: testTasks,
 	}
 }
 
@@ -187,6 +193,31 @@ func (g *Gate) Locate(ctx context.Context, objectType string, objectID uint) (Lo
 			ProductID:   bug.ProductID,
 			ProjectID:   bug.ProjectID,
 			ExecutionID: bug.ExecutionID,
+		}, nil
+
+	case model.ObjectTypeCase:
+		c, err := g.cases.FindByID(ctx, objectID)
+		if err != nil {
+			return Location{}, err
+		}
+		if c == nil {
+			return Location{}, apperr.New(apperr.TestCaseNotFound)
+		}
+		return Location{ProductID: c.ProductID}, nil
+
+	case model.ObjectTypeTestTask:
+		task, err := g.testTasks.FindByID(ctx, objectID)
+		if err != nil {
+			return Location{}, err
+		}
+		if task == nil {
+			return Location{}, apperr.New(apperr.TestTaskNotFound)
+		}
+		// 与缺陷一样把三层都带上，由 assertLocation 挑最贴近的那层。
+		return Location{
+			ProductID:   task.ProductID,
+			ProjectID:   task.ProjectID,
+			ExecutionID: task.ExecutionID,
 		}, nil
 
 	default:

@@ -1,4 +1,4 @@
-import { bugApi, executionApi, projectApi, storyApi, taskApi } from '@/api'
+import { bugApi, caseApi, executionApi, projectApi, storyApi, taskApi, testTaskApi } from '@/api'
 
 // 状态动作 → 接口的映射。
 //
@@ -22,6 +22,10 @@ export function callAction(objectType, id, action, payload = {}) {
       return callTaskAction(id, action, payload)
     case 'bug':
       return callBugAction(id, action, payload)
+    case 'case':
+      return callCaseAction(id, action, payload)
+    case 'testtask':
+      return callTestTaskAction(id, action, payload)
     case 'project':
       return projectApi.action(id, action, { comment: payload.comment || '' })
     case 'execution':
@@ -122,6 +126,44 @@ function callBugAction(id, action, p) {
       })
     default:
       return Promise.reject(new Error(`缺陷不支持的动作：${action}`))
+  }
+}
+
+// 用例的评审结论在状态机里是 pass / reject 两个动作，对外只有一个 /review 接口，
+// 与需求同形。提交评审与撤回评审则是纯状态动作。
+function callCaseAction(id, action, p) {
+  switch (action) {
+    case 'submitreview':
+      return caseApi.submitReview(id, { comment: p.comment || '' })
+    case 'recall':
+      return caseApi.recall(id, { comment: p.comment || '' })
+    case 'pass':
+    case 'reject':
+      return caseApi.review(id, { result: action, comment: p.comment || '' })
+    default:
+      return Promise.reject(new Error(`用例不支持的动作：${action}`))
+  }
+}
+
+// 测试单的动作。
+//
+// 结单必须带结论（result），这是后端硬性要求：一张单「测完了」但说不出
+// 通没通过，等于没有产出。report 是给人看的测试报告正文。
+function callTestTaskAction(id, action, p) {
+  switch (action) {
+    case 'assign':
+      return testTaskApi.assign(id, { assignedTo: p.assignedTo, comment: p.comment || '' })
+    case 'start':
+    case 'block':
+    case 'activate':
+      return testTaskApi[action](id, { comment: p.comment || '' })
+    case 'finish':
+      return testTaskApi.finish(id, {
+        result: p.result,
+        report: p.report || '',
+      })
+    default:
+      return Promise.reject(new Error(`测试单不支持的动作：${action}`))
   }
 }
 

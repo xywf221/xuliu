@@ -807,6 +807,163 @@ TOKEN="$DEV_TOKEN"
 call_status "白名单内可访问需求" GET "$API/stories/$STORY_ID" "200"
 
 # ---------------------------------------------------------------------------
+# 11. 测试用例与测试单（用例评审 → 纳入 → 执行 → 结单）
+# ---------------------------------------------------------------------------
+
+step "11. 测试用例与测试单"
+
+# 这一节自带一个产品：上一节把 PRODUCT_ID 改成了私有，拿它做测试域的用例
+# 会因为「看不见这个产品」而失败，那是可见性的正确行为，不是测试域的 bug。
+# 用管理员建产品与模块树（module-manage 不在测试组的权限里）。
+TOKEN="$ADMIN_TOKEN"
+body_of '"name":"登录测试域产品"' '"code":"E2ELOGIN"' '"status":"normal"' >"$REQ"
+call "建测试域产品" POST /products "$REQ" || exit 1
+TEST_PRODUCT_ID="$(get data.id)"
+
+# 用例模块树：同一产品下需求/任务/缺陷/用例是四棵独立的树。
+body_of \
+	'"root":'"$TEST_PRODUCT_ID" \
+	'"type":"case"' \
+	'"name":"登录用例组"' >"$REQ"
+call "建用例模块树" POST /modules "$REQ" || exit 1
+CASE_MODULE_ID="$(get data.id)"
+
+# 建用例（两步）。步骤顺序由后端按提交顺序重排，前端传的序号不作数。
+TOKEN="$TESTER_TOKEN"
+body_of \
+	'"productId":'"$TEST_PRODUCT_ID" \
+	'"moduleId":'"$CASE_MODULE_ID" \
+	'"title":"手机号登录失败时提示口令不正确"' \
+	'"type":"feature"' \
+	'"pri":1' \
+	'"precondition":"已有一个未注册手机号"' \
+	'"steps":[{"step":"打开登录页","expect":"出现账号与口令输入框"},{"step":"输入错误口令并提交","expect":"提示“口令不正确”"}]' >"$REQ"
+call "建用例" POST /testcases "$REQ" || exit 1
+CASE_ID="$(get data.id)"
+check_eq "用例初始评审阶段" "$(get data.stage)" "wait"
+check_eq "用例初始版本" "$(get data.version)" "1"
+check_eq "用例步骤数" "$(get data.stepCount)" "2"
+check_eq "用例编号" "$(get data.code)" "CASE-$CASE_ID"
+
+# 没步骤的用例无法逐步判定，必须拒。
+body_of '"productId":'"$TEST_PRODUCT_ID" '"title":"没有步骤的用例"' >"$REQ"
+call_status "建无步骤用例被拒" POST "/testcases" "400" "$REQ"
+
+# 拿需求树的节点当用例模块：四棵树各自独立，必须拒。
+body_of \
+	'"productId":'"$TEST_PRODUCT_ID" \
+	'"moduleId":'"$MODULE_ID" \
+	'"title":"挂错模块树的用例"' \
+	'"steps":[{"step":"a","expect":"b"}]' >"$REQ"
+call_status "用例挂到需求树被拒" POST "/testcases" "400" "$REQ"
+
+# 未评审通过的用例不该进测试单。
+body_of '"productId":'"$TEST_PRODUCT_ID" '"name":"不该收到未评审用例的单"' '"caseIds":['"$CASE_ID"']' >"$REQ"
+call_status "未确认用例纳入被拒" POST "/testtasks" "400" "$REQ"
+
+# 提交评审 → 评审中。全量内容要在请求体里带一遍（PUT 是整体覆盖语义）。
+case_full_body() { # case_full_body <标题> —— 复用同一份两步内容
+	body_of \
+		'"productId":'"$TEST_PRODUCT_ID" \
+		'"moduleId":'"$CASE_MODULE_ID" \
+		'"title":"'"$1"'"' \
+		'"type":"feature"' \
+		'"pri":1' \
+		'"precondition":"已有一个未注册手机号"' \
+		'"steps":[{"step":"打开登录页","expect":"出现账号与口令输入框"},{"step":"输入错误口令并提交","expect":"提示口令不正确"}]' >"$REQ"
+}
+
+body_of '"comment":"请产品确认覆盖是否足够"' >"$REQ"
+call "提交用例评审" POST "/testcases/$CASE_ID/submit-review" "$REQ"
+case_full_body "评审中偷偷改标题"
+call_status "评审中不能编辑用例" PUT "/testcases/$CASE_ID" "409" "$REQ"
+
+# 评审通过由「有 testcase-review 权的人」出结论；测试组有。
+body_of '"result":"pass"' '"comment":"覆盖够了"' >"$REQ"
+call "用例评审通过" POST "/testcases/$CASE_ID/review" "$REQ"
+check_eq "评审后阶段" "$(get data.stage)" "confirmed"
+
+# 建测试单并纳入这条用例。
+body_of '"productId":'"$TEST_PRODUCT_ID" '"name":"v1.0 登录回归"' '"pri":1' >"$REQ"
+call "建测试单" POST /testtasks "$REQ" || exit 1
+TASK_TEST_ID="$(get data.id)"
+check_eq "测试单初始状态" "$(get data.status)" "wait"
+
+body_of '"caseIds":['"$CASE_ID"']' >"$REQ"
+call "纳入用例" POST "/testtasks/$TASK_TEST_ID/cases" "$REQ"
+check_eq "单内用例数" "$(get data.caseCount)" "1"
+check_eq "单内锁定的用例版本" "$(get data.cases.0.caseVersion)" "1"
+
+# 开始 → 记录一次失败（步骤的实际结果只给第 2 步）。
+call "开始测试单" POST "/testtasks/$TASK_TEST_ID/start" ""
+body_of \
+	'"result":"fail"' \
+	'"note":"提示文案不对"' \
+	'"steps":[{"order":2,"actual":"提示的是“登录失败”"}]' \
+	'"duration":0.5' >"$REQ"
+call "记录执行失败" POST "/testtasks/$TASK_TEST_ID/cases/$CASE_ID/run" "$REQ" || exit 1
+# 步骤的原文由后端按用例内容回填：客户端只传实际结果，
+# 否则一份被改过的步骤描述可以伪装成「当时跑的就是这样」。
+check_nonempty "快照含第 2 步" "$(get data.steps.1.step)"
+check_eq "快照不含第 3 步" "$(get data.steps.2.step)" ""
+check_eq "第 1 步原文由后端回填" "$(get data.steps.0.step)" "打开登录页"
+check_eq "第 1 步没传实际结果应为空" "$(get data.steps.0.actual)" ""
+check_eq "第 2 步的实际结果被记录" "$(get data.steps.1.actual)" "提示的是“登录失败”"
+
+call_url "单内用例的最新结论" "$API/testtasks/$TASK_TEST_ID"
+check_eq "单内用例最新结论" "$(get data.cases.0.lastResult)" "fail"
+check_eq "单内执行汇总的失败数" "$(get data.summary.fail)" "1"
+
+# 修好后复测通过：执行历史是追加的，两次结果都要能查到。
+body_of '"result":"pass"' '"note":"文案已修正"' '"duration":0.3' >"$REQ"
+call "复测通过" POST "/testtasks/$TASK_TEST_ID/cases/$CASE_ID/run" "$REQ"
+call_url "查这条用例的执行历史" "$API/testtasks/$TASK_TEST_ID/runs?caseId=$CASE_ID"
+check_eq "执行记录条数" "$(get data.total)" "2"
+# 最新一次覆盖单内状态，历史仍是两条。
+call_url "复测后的单内汇总" "$API/testtasks/$TASK_TEST_ID"
+check_eq "复测后通过数" "$(get data.summary.pass)" "1"
+check_eq "复测后失败数" "$(get data.summary.fail)" "0"
+
+# 结单必须给结论。传一个空对象而不是不传体：要的是「result 必填」这个 400，
+# 不是「请求体缺失」那个 400 —— 两者状态码相同，拒的原因完全不同。
+printf '{}' >"$REQ"
+call_status "不给结论不能结单" POST "/testtasks/$TASK_TEST_ID/finish" "400" "$REQ"
+body_of '"result":"pass"' '"report":"登录相关用例全部通过"' >"$REQ"
+call "结单" POST "/testtasks/$TASK_TEST_ID/finish" "$REQ"
+check_eq "结单后状态" "$(get data.status)" "closed"
+check_eq "结单结论" "$(get data.result)" "pass"
+
+# 已结单不再接受执行结果，也不该被一键删掉（执行记录是测试证据）。
+body_of '"result":"pass"' >"$REQ"
+call_status "已结单不能记结果" POST "/testtasks/$TASK_TEST_ID/cases/$CASE_ID/run" "409" "$REQ"
+call_status "有执行记录不能删单" DELETE "/testtasks/$TASK_TEST_ID" "409"
+
+# 执行动作要留痕：时间线上能看到那次 run。
+call_url "测试单的操作历史" "$API/actions?objectType=testtask&objectID=$TASK_TEST_ID"
+check_nonempty "历史里有开单记录" "$(get data.list.0.id)"
+
+# 用例列表能按阶段筛出这条已确认的用例。
+call_url "按阶段筛用例" "$API/testcases?stage=confirmed&productId=$TEST_PRODUCT_ID"
+check_num "已确认用例数" "$(get data.total)" "1"
+
+# 测试单可以评论：评论的对象类型是一份白名单，漏加 testtask 会得到 400，
+# 而前端详情页的评论区会一直空着（没人会想到是后端白名单漏了一项）。
+TOKEN="$TESTER_TOKEN"
+body_of \
+	'"objectType":"testtask"' \
+	'"objectID":'"$TASK_TEST_ID" \
+	'"content":"回归结论已确认"' >"$REQ"
+call "给测试单写评论" POST /comments "$REQ"
+call_url "读测试单的评论" "$API/comments?objectType=testtask&objectID=$TASK_TEST_ID"
+check_num "测试单评论数" "$(get data.total)" "1"
+
+# 测试单的执行汇总走的是 testrun-record 权限点：研发组没有它，应当被挡。
+TOKEN="$DEV_TOKEN"
+body_of '"result":"pass"' >"$REQ"
+call_status "无 testrun-record 权限不能记结果" \
+	POST "/testtasks/$TASK_TEST_ID/cases/$CASE_ID/run" "403" "$REQ"
+
+# ---------------------------------------------------------------------------
 # 收尾
 # ---------------------------------------------------------------------------
 

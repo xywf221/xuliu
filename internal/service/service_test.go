@@ -41,6 +41,8 @@ type harness struct {
 	executions *service.ExecutionService
 	tasks      *service.TaskService
 	bugs       *service.BugService
+	cases      *service.TestCaseService
+	testTasks  *service.TestTaskService
 
 	notices   *service.NoticeService
 	workbench *service.WorkbenchService
@@ -101,10 +103,17 @@ func newHarness(t *testing.T) *harness {
 	effortRepo := repository.NewEffortRepo(gdb)
 	bugRepo := repository.NewBugRepo(gdb)
 	noticeRepo := repository.NewNoticeRepo(gdb)
+	caseRepo := repository.NewTestCaseRepo(gdb)
+	caseStepRepo := repository.NewTestCaseStepRepo(gdb)
 
 	enforcer := acl.New(gdb)
+	testTaskRepo := repository.NewTestTaskRepo(gdb)
+	testTaskCaseRepo := repository.NewTestTaskCaseRepo(gdb)
+	testRunRepo := repository.NewTestRunRepo(gdb)
+	buildRepo := repository.NewBuildRepo(gdb)
+
 	gate := service.NewGate(enforcer, productRepo, storyRepo, planRepo, moduleRepo,
-		projectRepo, executionRepo, taskRepo, bugRepo)
+		projectRepo, executionRepo, taskRepo, bugRepo, caseRepo, testTaskRepo)
 
 	// 通知用真实实现：通知是「谁该收到什么」的业务规则，
 	// 换掉它就等于把 M5 最该测的那部分测没了。
@@ -123,7 +132,7 @@ func newHarness(t *testing.T) *harness {
 			storyRepo, planRepo, userRepo, gate),
 		lines: service.NewProductlineService(gdb, productlineRepo, productRepo, userRepo),
 		modules: service.NewModuleService(gdb, moduleRepo, productRepo, storyRepo,
-			taskRepo, bugRepo, gate),
+			taskRepo, bugRepo, caseRepo, gate),
 		plans:    service.NewPlanService(gdb, planRepo, productRepo, storyRepo, gate),
 		stories:  storySvc,
 		comments: service.NewCommentService(gdb, commentRepo, fileRepo, userRepo, gate),
@@ -137,6 +146,11 @@ func newHarness(t *testing.T) *harness {
 		bugs: service.NewBugService(gdb, bugRepo, productRepo, moduleRepo, planRepo,
 			projectRepo, executionRepo, taskRepo, storyRepo, userRepo,
 			fileRepo, commentRepo, storySvc, gate, noticeSvc),
+		cases: service.NewTestCaseService(gdb, caseRepo, caseStepRepo,
+			productRepo, moduleRepo, storyRepo, userRepo, fileRepo, commentRepo, gate),
+		testTasks: service.NewTestTaskService(gdb, testTaskRepo, testTaskCaseRepo,
+			testRunRepo, caseRepo, caseStepRepo, productRepo, projectRepo, executionRepo,
+			buildRepo, userRepo, gate, noticeSvc),
 		notices: noticeSvc,
 		workbench: service.NewWorkbenchService(taskRepo, bugRepo, storyRepo, reviewRepo,
 			effortRepo, noticeRepo, userRepo, productRepo, projectRepo, executionRepo, gate),

@@ -100,6 +100,7 @@ func registeredAPIRoutes(t *testing.T) []route {
 	registerProject(api, Deps{})
 	registerTask(api, Deps{})
 	registerBug(api, Deps{})
+	registerTest(api, Deps{})
 	registerCommon(api, Deps{})
 	registerWorkbench(api, Deps{})
 

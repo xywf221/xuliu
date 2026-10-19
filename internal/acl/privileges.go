@@ -83,6 +83,27 @@ const (
 	PrivBugActivate Priv = "bug-activate"
 	PrivBugToStory  Priv = "bug-tostory"
 
+	// ---- 测试用例 ----
+	// 评审与编辑分开：改内容的人不该同时是给出评审结论的人。
+	PrivTestCaseBrowse Priv = "testcase-browse"
+	PrivTestCaseCreate Priv = "testcase-create"
+	PrivTestCaseEdit   Priv = "testcase-edit"
+	PrivTestCaseDelete Priv = "testcase-delete"
+	PrivTestCaseReview Priv = "testcase-review"
+
+	// ---- 测试单与执行 ----
+	PrivTestTaskBrowse Priv = "testtask-browse"
+	PrivTestTaskCreate Priv = "testtask-create"
+	PrivTestTaskEdit   Priv = "testtask-edit"
+	PrivTestTaskDelete Priv = "testtask-delete"
+	PrivTestTaskAssign Priv = "testtask-assign"
+	PrivTestTaskStart  Priv = "testtask-start"
+	PrivTestTaskFinish Priv = "testtask-finish"
+	// PrivTestRunRecord 是「记录一次用例执行结果」的权限。
+	// 它单独存在而不是挂在 testtask-edit 上：能改测试单的元信息与能
+	// 给出「这条用例通过了」的结论是两件事，后者才决定测试报告的可信度。
+	PrivTestRunRecord Priv = "testrun-record"
+
 	// ---- 工作台 ----
 	PrivMyWork     Priv = "my-work"
 	PrivReport     Priv = "report-browse"
@@ -119,6 +140,9 @@ var moduleNames = map[string]string{
 	"task":        "任务",
 	"effort":      "工时",
 	"bug":         "缺陷",
+	"testcase":    "测试用例",
+	"testtask":    "测试单",
+	"testrun":     "测试执行",
 	"my":          "工作台",
 	"report":      "报表",
 	"admin":       "系统",
@@ -304,6 +328,21 @@ func init() {
 	register(PrivBugActivate, "重新激活缺陷")
 	register(PrivBugToStory, "缺陷转需求")
 
+	register(PrivTestCaseBrowse, "查看测试用例")
+	register(PrivTestCaseCreate, "新建测试用例")
+	register(PrivTestCaseEdit, "编辑测试用例")
+	register(PrivTestCaseDelete, "删除测试用例")
+	register(PrivTestCaseReview, "评审测试用例")
+
+	register(PrivTestTaskBrowse, "查看测试单")
+	register(PrivTestTaskCreate, "新建测试单")
+	register(PrivTestTaskEdit, "编辑测试单")
+	register(PrivTestTaskDelete, "删除测试单")
+	register(PrivTestTaskAssign, "指派测试单")
+	register(PrivTestTaskStart, "推进测试单")
+	register(PrivTestTaskFinish, "测试单结单")
+	register(PrivTestRunRecord, "记录用例执行结果")
+
 	// 工作台
 	register(PrivMyWork, "我的工作台")
 	register(PrivReport, "查看统计报表")
@@ -332,6 +371,8 @@ var DefaultGroupPrivs = map[string][]Priv{
 		PrivStoryReview, PrivStoryClose, PrivStoryAssign, PrivStoryDelete,
 		PrivProjectBrowse, PrivExecutionCreate,
 		PrivTaskBrowse, PrivBugBrowse,
+		// 用例由测试写，产品负责认可覆盖是否足够 —— 所以只给查看与评审。
+		PrivTestCaseBrowse, PrivTestCaseReview,
 		PrivMyWork, PrivReport,
 	},
 	"项目经理": {
@@ -343,6 +384,7 @@ var DefaultGroupPrivs = map[string][]Priv{
 		PrivTaskStart, PrivTaskFinish, PrivTaskClose, PrivTaskCancel,
 		PrivEffortRecord, PrivTaskDelete,
 		PrivBugBrowse, PrivBugCreate, PrivBugAssign,
+		PrivTestCaseBrowse, PrivTestCaseCreate, PrivTestCaseEdit,
 		PrivMyWork, PrivReport,
 	},
 	"研发": {
@@ -350,6 +392,8 @@ var DefaultGroupPrivs = map[string][]Priv{
 		PrivProjectBrowse, PrivTaskBrowse, PrivTaskCreate, PrivTaskEdit,
 		PrivTaskStart, PrivTaskFinish, PrivEffortRecord,
 		PrivBugBrowse, PrivBugCreate, PrivBugEdit, PrivBugResolve,
+		// 研发只看用例（了解怎么测），改动权留给测试。
+		PrivTestCaseBrowse,
 		PrivMyWork,
 	},
 	"测试": {
@@ -358,6 +402,12 @@ var DefaultGroupPrivs = map[string][]Priv{
 		PrivTaskStart, PrivTaskFinish, PrivEffortRecord,
 		PrivBugBrowse, PrivBugCreate, PrivBugEdit, PrivBugConfirm,
 		PrivBugClose, PrivBugActivate, PrivBugAssign,
+		PrivTestCaseBrowse, PrivTestCaseCreate, PrivTestCaseEdit,
+		PrivTestCaseDelete, PrivTestCaseReview,
+		// 测试组自带全流程：建单、推进、指派别人、记录结果、结单。
+		PrivTestTaskBrowse, PrivTestTaskCreate, PrivTestTaskEdit,
+		PrivTestTaskAssign, PrivTestTaskStart, PrivTestTaskFinish,
+		PrivTestTaskDelete, PrivTestRunRecord,
 		PrivMyWork, PrivReport,
 	},
 }

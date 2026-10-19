@@ -149,3 +149,43 @@ export const fileApi = {
 export const actionApi = {
   list: (params) => client.get('/actions', { params }),
 }
+
+// ---- 测试用例 ----
+export const caseApi = {
+  list: (params) => client.get('/testcases', { params }),
+  get: (id) => client.get(`/testcases/${id}`),
+  create: (data) => client.post('/testcases', data),
+  update: (id, data) => client.put(`/testcases/${id}`, data),
+  remove: (id) => client.delete(`/testcases/${id}`),
+
+  // 提交评审 / 撤回评审走通用动作接口（请求体只有备注）；
+  // 评审结论走 /review，结论放在 result 里。
+  submitReview: (id, data) => client.post(`/testcases/${id}/submit-review`, data || {}),
+  recall: (id, data) => client.post(`/testcases/${id}/recall`, data || {}),
+  review: (id, data) => client.post(`/testcases/${id}/review`, data),
+}
+
+// ---- 测试单 ----
+export const testTaskApi = {
+  list: (params) => client.get('/testtasks', { params }),
+  get: (id) => client.get(`/testtasks/${id}`),
+  runs: (id, params) => client.get(`/testtasks/${id}/runs`, { params }),
+  create: (data) => client.post('/testtasks', data),
+  update: (id, data) => client.put(`/testtasks/${id}`, data),
+  remove: (id) => client.delete(`/testtasks/${id}`),
+
+  // 整单指派负责人
+  assign: (id, data) => client.post(`/testtasks/${id}/assign`, data),
+  start: (id, data) => client.post(`/testtasks/${id}/start`, data || {}),
+  block: (id, data) => client.post(`/testtasks/${id}/block`, data || {}),
+  activate: (id, data) => client.post(`/testtasks/${id}/activate`, data || {}),
+  // 结单必须给结论（pass / fail / blocked），后端会校验。
+  finish: (id, data) => client.post(`/testtasks/${id}/finish`, data),
+
+  // 单内用例管理
+  addCases: (id, data) => client.post(`/testtasks/${id}/cases`, data),
+  removeCase: (id, caseId) => client.delete(`/testtasks/${id}/cases/${caseId}`),
+  assignCase: (id, caseId, data) => client.put(`/testtasks/${id}/cases/${caseId}/assign`, data),
+  // 记录一次执行：同一用例在同一单里可以跑多次，每次追加一条记录。
+  run: (id, caseId, data) => client.post(`/testtasks/${id}/cases/${caseId}/run`, data),
+}

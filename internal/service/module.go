@@ -26,6 +26,7 @@ type ModuleService struct {
 	stories  *repository.StoryRepo
 	tasks    *repository.TaskRepo
 	bugs     *repository.BugRepo
+	cases    *repository.TestCaseRepo
 	gate     *Gate
 }
 
@@ -37,11 +38,12 @@ func NewModuleService(
 	stories *repository.StoryRepo,
 	tasks *repository.TaskRepo,
 	bugs *repository.BugRepo,
+	cases *repository.TestCaseRepo,
 	gate *Gate,
 ) *ModuleService {
 	return &ModuleService{
 		db: db, modules: modules, products: products, stories: stories,
-		tasks: tasks, bugs: bugs, gate: gate,
+		tasks: tasks, bugs: bugs, cases: cases, gate: gate,
 	}
 }
 
@@ -229,9 +231,10 @@ func (s *ModuleService) Delete(ctx context.Context, id uint) error {
 		return apperr.New(apperr.ModuleHasChildren)
 	}
 
-	// 三棵树各有自己的实体：需求树挂需求，任务树挂任务，缺陷树挂缺陷。
-	// 按 type 分别统计 —— 一个需求模块下有没有任务与该模块能否删除无关
-	// （任务的 module_id 指向的是任务树的节点，两者 id 空间不同）。
+	// 四棵树各有自己的实体：需求树挂需求，任务树挂任务，缺陷树挂缺陷，
+	// 用例树挂用例。按 type 分别统计 —— 一个需求模块下有没有任务与
+	// 该模块能否删除无关（任务的 module_id 指向的是任务树的节点，
+	// 两者 id 空间不同）。
 	switch m.Type {
 	case model.ModuleTypeStory:
 		count, err := s.stories.CountByModule(ctx, id)
@@ -259,6 +262,15 @@ func (s *ModuleService) Delete(ctx context.Context, id uint) error {
 		if count > 0 {
 			return apperr.Newf(apperr.ModuleHasObjects,
 				"该模块下还有 %d 个缺陷，请先转移后再删除", count)
+		}
+	case model.ModuleTypeCase:
+		count, err := s.cases.CountByModule(ctx, id)
+		if err != nil {
+			return err
+		}
+		if count > 0 {
+			return apperr.Newf(apperr.ModuleHasObjects,
+				"该模块下还有 %d 条用例，请先转移后再删除", count)
 		}
 	}
 
@@ -356,7 +368,8 @@ func (s *ModuleService) rebuildSubtree(ctx context.Context, tx *gorm.DB, id, par
 // assertType 校验模块树类型。
 func (s *ModuleService) assertType(moduleType string) error {
 	switch moduleType {
-	case model.ModuleTypeStory, model.ModuleTypeTask, model.ModuleTypeBug:
+	case model.ModuleTypeStory, model.ModuleTypeTask,
+		model.ModuleTypeBug, model.ModuleTypeCase:
 		return nil
 	default:
 		return apperr.Newf(apperr.InvalidParam, "不支持的模块树类型：%s", moduleType)

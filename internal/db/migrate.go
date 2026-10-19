@@ -66,6 +66,13 @@ var migrations = []migration{
 	// ---- 缺陷 ----
 	{model.Bug{}.TableName(), &model.Bug{}},
 
+	// ---- 测试用例 ----
+	{model.TestCase{}.TableName(), &model.TestCase{}},
+	{model.TestCaseStep{}.TableName(), &model.TestCaseStep{}},
+	{model.TestTask{}.TableName(), &model.TestTask{}},
+	{model.TestTaskCase{}.TableName(), &model.TestTaskCase{}},
+	{model.TestRun{}.TableName(), &model.TestRun{}},
+
 	// ---- 通用（多态） ----
 	{model.Action{}.TableName(), &model.Action{}},
 	{model.Comment{}.TableName(), &model.Comment{}},

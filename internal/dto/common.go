@@ -11,7 +11,11 @@ package dto
 
 // CommentReq 是发表评论的请求。
 type CommentReq struct {
-	ObjectType string `json:"objectType" validate:"required,oneof=story task bug project execution product productplan module"`
+	// ObjectType 的白名单只是第一道；真正的可见性判定在 Gate，
+	// 它按对象类型去解析归属（不认识的类型一律拒绝）。
+	// 新增一种可评论的对象时，这里和 Gate.Locate 要一起加，
+	// 只加一边会得到「参数合法但查不到对象」这种最难懂的报错。
+	ObjectType string `json:"objectType" validate:"required,oneof=story task bug project execution product productplan module case testtask"`
 	ObjectID   uint   `json:"objectID" validate:"required"`
 	Content    string `json:"content" validate:"required,max=5000"`
 	// Files 是评论附带的附件 id。

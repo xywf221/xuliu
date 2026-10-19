@@ -459,6 +459,179 @@ var ExecutionMachine = &Machine{
 	},
 }
 
+// TestCaseMachine 测试用例的评审状态机。
+//
+// 注意这台机器管的是 **Stage**（评审阶段），不是 Status（可执行性）：
+//
+//	submitreview: stage ∈ {wait, rejected}      → reviewing
+//	recall:       stage == reviewing            → wait
+//	pass:         stage == reviewing            → confirmed
+//	reject:       stage == reviewing            → rejected
+//	edit:         stage ∈ {wait, confirmed, rejected}（reviewing 时要先撤回）
+//
+// 两条容易被忽略的规则：
+//
+//  1. 已 confirmed 的用例**允许再编辑**，但一改就 Version +1 并打回 wait ——
+//     用例内容变了，当初的评审结论不该继续沿用。谁写的谁改、改了要重评审，
+//     比「锁死不让改」更贴近实际（用例本来就要随产品演进去修）。
+//  2. blocked/investigate 不在这里。它们是「现在跑不跑得动」，
+//     与「有没有被认可」正交，走普通的编辑接口改字段。
+//
+// 目标状态与字段写入由 service 完成（这台机器只回答「合不合法、要什么权限」）。
+var TestCaseMachine = &Machine{
+	ObjectType: model.ObjectTypeCase,
+	ErrorCode:  apperr.TestCaseStageInvalid,
+	Statuses: []string{
+		model.TestCaseStageWait,
+		model.TestCaseStageReviewing,
+		model.TestCaseStageConfirmed,
+		model.TestCaseStageRejected,
+	},
+	StatusLabels: map[string]string{
+		model.TestCaseStageWait:      "待评审",
+		model.TestCaseStageReviewing: "评审中",
+		model.TestCaseStageConfirmed: "已确认",
+		model.TestCaseStageRejected:  "已驳回",
+	},
+	Transitions: map[string]Transition{
+		"create": {
+			Action: "create", To: model.TestCaseStageWait,
+			Perm: string(acl.PrivTestCaseCreate), Label: "新建用例",
+			Kind: KindCreate, LogAction: model.ActionOpened,
+		},
+		"edit": {
+			Action: "edit",
+			From: []string{
+				model.TestCaseStageWait, model.TestCaseStageConfirmed,
+				model.TestCaseStageRejected,
+			},
+			Perm: string(acl.PrivTestCaseEdit), Label: "编辑",
+			Kind: KindEdit, LogAction: model.ActionEdited,
+		},
+		"submitreview": {
+			Action: "submitreview",
+			From:   []string{model.TestCaseStageWait, model.TestCaseStageRejected},
+			To:     model.TestCaseStageReviewing,
+			// 提交评审要的是编辑权而不是评审权：写用例的人提交，别人出结论。
+			Perm: string(acl.PrivTestCaseEdit), Label: "提交评审",
+			Kind: KindStatus, LogAction: model.ActionSubmitReview,
+		},
+		"recall": {
+			Action: "recall",
+			From:   []string{model.TestCaseStageReviewing},
+			To:     model.TestCaseStageWait,
+			Perm:   string(acl.PrivTestCaseEdit), Label: "撤回评审",
+			Kind: KindStatus, LogAction: model.ActionRecalled,
+		},
+		"pass": {
+			Action: "pass",
+			From:   []string{model.TestCaseStageReviewing},
+			To:     model.TestCaseStageConfirmed,
+			Perm:   string(acl.PrivTestCaseReview), Label: "评审通过",
+			Kind: KindStatus, LogAction: model.ActionReviewed,
+		},
+		"reject": {
+			Action: "reject",
+			From:   []string{model.TestCaseStageReviewing},
+			To:     model.TestCaseStageRejected,
+			Perm:   string(acl.PrivTestCaseReview), Label: "评审驳回",
+			Kind: KindStatus, LogAction: model.ActionReviewed,
+			Danger: true,
+		},
+	},
+}
+
+// TestTaskMachine 测试单状态机。
+//
+// 这台机器只管 **Status**（流程位置），结论在 Result 列里，由 finish 动作写入：
+//
+//	start:    status ∈ {wait, blocked}  → doing
+//	block:    status == doing           → blocked
+//	finish:   status ∈ {wait, doing, blocked} → closed（必须给 Result）
+//	activate: status == closed          → doing（重开：复测、补测）
+//
+// 三条不那么显然的规则：
+//
+//  1. finish 允许从 wait 出发。一张单被建出来后来又决定不测（误建、
+//     需求撤了）是正常收尾，强要「必须先开始再结束」只会逼人先点一次开始。
+//  2. block 只从 doing 来。未开始的单没有「阻塞」可言。
+//  3. activate 不清洗 Result。重开再结单时会覆盖上一次的结论，
+//     但「第几次结单给出过什么结论」属于执行历史（pm_testrun），
+//     不该由状态机假装保留。
+var TestTaskMachine = &Machine{
+	ObjectType: model.ObjectTypeTestTask,
+	ErrorCode:  apperr.TestTaskStatusInvalid,
+	Statuses: []string{
+		model.TestTaskStatusWait,
+		model.TestTaskStatusDoing,
+		model.TestTaskStatusBlocked,
+		model.TestTaskStatusClosed,
+	},
+	StatusLabels: map[string]string{
+		model.TestTaskStatusWait:    "未开始",
+		model.TestTaskStatusDoing:   "进行中",
+		model.TestTaskStatusBlocked: "已阻塞",
+		model.TestTaskStatusClosed:  "已结单",
+	},
+	Transitions: map[string]Transition{
+		"create": {
+			Action: "create", To: model.TestTaskStatusWait,
+			Perm: string(acl.PrivTestTaskCreate), Label: "新建测试单",
+			Kind: KindCreate, LogAction: model.ActionOpened,
+		},
+		"edit": {
+			Action: "edit",
+			From: []string{
+				model.TestTaskStatusWait, model.TestTaskStatusDoing,
+				model.TestTaskStatusBlocked,
+			},
+			Perm: string(acl.PrivTestTaskEdit), Label: "编辑",
+			Kind: KindEdit, LogAction: model.ActionEdited,
+		},
+		"assign": {
+			Action: "assign",
+			From: []string{
+				model.TestTaskStatusWait, model.TestTaskStatusDoing,
+				model.TestTaskStatusBlocked,
+			},
+			Perm: string(acl.PrivTestTaskAssign), Label: "指派",
+			Kind: KindAssign, LogAction: model.ActionAssigned,
+		},
+		"start": {
+			Action: "start",
+			From:   []string{model.TestTaskStatusWait, model.TestTaskStatusBlocked},
+			To:     model.TestTaskStatusDoing,
+			Perm:   string(acl.PrivTestTaskStart), Label: "开始",
+			Kind: KindStatus, LogAction: model.ActionStarted,
+		},
+		"block": {
+			Action: "block",
+			From:   []string{model.TestTaskStatusDoing},
+			To:     model.TestTaskStatusBlocked,
+			Perm:   string(acl.PrivTestTaskStart), Label: "标记阻塞",
+			Kind: KindStatus, LogAction: model.ActionBlocked,
+		},
+		"finish": {
+			Action: "finish",
+			From: []string{
+				model.TestTaskStatusWait, model.TestTaskStatusDoing,
+				model.TestTaskStatusBlocked,
+			},
+			To:   model.TestTaskStatusClosed,
+			Perm: string(acl.PrivTestTaskFinish), Label: "结单",
+			Kind: KindStatus, LogAction: model.ActionClosed,
+			Danger: true,
+		},
+		"activate": {
+			Action: "activate",
+			From:   []string{model.TestTaskStatusClosed},
+			To:     model.TestTaskStatusDoing,
+			Perm:   string(acl.PrivTestTaskStart), Label: "重新打开",
+			Kind: KindStatus, LogAction: model.ActionActivated,
+		},
+	},
+}
+
 // Machines 按对象类型索引全部状态机，供通用接口（如 /actions）查表。
 var Machines = map[string]*Machine{
 	model.ObjectTypeStory:     StoryMachine,
@@ -466,6 +639,8 @@ var Machines = map[string]*Machine{
 	model.ObjectTypeBug:       BugMachine,
 	model.ObjectTypeProject:   ProjectMachine,
 	model.ObjectTypeExecution: ExecutionMachine,
+	model.ObjectTypeCase:      TestCaseMachine,
+	model.ObjectTypeTestTask:  TestTaskMachine,
 }
 
 // Get 按对象类型取状态机。

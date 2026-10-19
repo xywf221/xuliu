@@ -504,11 +504,131 @@ var bugConfirmedLabels = map[string]string{
 	"1": "已确认",
 }
 
+// CaseLabeler 把用例的字段与取值翻译成可读文本。
+type CaseLabeler struct{}
+
+// FieldLabel 返回字段的中文名。
+func (CaseLabeler) FieldLabel(field string) string {
+	if l, ok := caseFieldLabels[field]; ok {
+		return l
+	}
+	return ""
+}
+
+// Value 把原始值翻译为可读文本。
+//
+// stage 交给状态机自己翻：标签就定义在那儿，这里再抄一份必然漂移。
+func (CaseLabeler) Value(field, raw string) string {
+	if raw == "" {
+		return ""
+	}
+	switch field {
+	case "stage":
+		return workflow.TestCaseMachine.StatusLabel(raw)
+	case "status":
+		if l, ok := caseStatusLabels[raw]; ok {
+			return l
+		}
+	case "type":
+		if l, ok := caseTypeLabels[raw]; ok {
+			return l
+		}
+	case "pri":
+		if l, ok := priLabels[raw]; ok {
+			return l
+		}
+	}
+	return raw
+}
+
+// caseFieldLabels 是用例字段的中文名。
+//
+// 只有列进来的字段才会进时间线。步骤明细的变化不单独记录：
+// 版本 +1 本身就是「内容变了」的信号，把每一步的文本摊开只会刷屏。
+var caseFieldLabels = map[string]string{
+	"title":        "用例标题",
+	"precondition": "前置条件",
+	"keywords":     "关键词",
+	"desc":         "补充说明",
+	"type":         "用例类型",
+	"pri":          "优先级",
+	"stage":        "评审阶段",
+	"status":       "可执行性",
+	"version":      "版本",
+	"module_id":    "所属模块",
+	"story_id":     "溯源需求",
+	"reviewed_by":  "评审人",
+}
+
+var caseTypeLabels = map[string]string{
+	model.TestCaseTypeFeature:     "功能",
+	model.TestCaseTypeInterface:   "接口",
+	model.TestCaseTypePerformance: "性能",
+	model.TestCaseTypeConfig:      "配置",
+	model.TestCaseTypeSecurity:    "安全",
+	model.TestCaseTypeOthers:      "其他",
+}
+
+var caseStatusLabels = map[string]string{
+	model.TestCaseStatusNormal:      "正常",
+	model.TestCaseStatusBlocked:     "被阻塞",
+	model.TestCaseStatusInvestigate: "待查",
+}
+
+// TestTaskLabeler 把测试单的字段与取值翻译成可读文本。
+type TestTaskLabeler struct{}
+
+// FieldLabel 返回字段的中文名。
+func (TestTaskLabeler) FieldLabel(field string) string {
+	if l, ok := testTaskFieldLabels[field]; ok {
+		return l
+	}
+	return ""
+}
+
+// Value 把原始值翻译为可读文本。
+func (TestTaskLabeler) Value(field, raw string) string {
+	if raw == "" {
+		return ""
+	}
+	switch field {
+	case "status":
+		return workflow.TestTaskMachine.StatusLabel(raw)
+	case "result":
+		return testTaskResultLabel(raw)
+	case "pri":
+		if l, ok := priLabels[raw]; ok {
+			return l
+		}
+	}
+	return raw
+}
+
+// testTaskFieldLabels 是测试单字段的中文名。
+//
+// product_id / project_id / execution_id 属于结构性归属，改它们的场景
+// 几乎只发生在建单时（建完就定了），列进时间线只会刷屏。
+var testTaskFieldLabels = map[string]string{
+	"name":        "测试单名称",
+	"desc":        "说明",
+	"pri":         "优先级",
+	"status":      "状态",
+	"result":      "测试结论",
+	"report":      "结单报告",
+	"assigned_to": "负责人",
+	"build_id":    "被测构建",
+	"begin":       "计划开始",
+	"end":         "计划结束",
+	"case_count":  "用例数",
+}
+
 // 编译期断言：各 Labeler 满足 history 的接口。
 var (
 	_ history.Labeler = ProjectLabeler{}
 	_ history.Labeler = TaskLabeler{}
 	_ history.Labeler = BugLabeler{}
+	_ history.Labeler = CaseLabeler{}
+	_ history.Labeler = TestTaskLabeler{}
 )
 
 // fillUserNames 把变更里的用户 id 翻成姓名。
